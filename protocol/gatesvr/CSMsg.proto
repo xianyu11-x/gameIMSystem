@@ -1,0 +1,52 @@
+syntax = "proto3";
+package protocol.csmsg;
+import "common/player.proto";
+enum CSMsgType{
+    EN_UNKOWN = 0;
+    EN_HEARTBEAT = 1;
+    EN_LOGIN = 2;
+    EN_CHAT = 3;
+    EN_WHISPER = 4;
+}
+
+message CSMsgReq{
+    CSMsgType CSMsgType = 1;
+    oneof body{
+        CSLoginMsgReq loginReq = 2;
+    }
+}
+
+enum CSLoginMsgType{
+    EN_PLAYER_LOGIN = 0;
+    EN_PLAYER_LOOUT = 1;
+}
+
+
+
+message CSLoginMsgReq{
+    CSLoginMsgType msgType = 1;
+    protocol.common.PlayerInfo info = 2;
+}
+
+message CSLoginMsgRsp{
+    CSLoginMsgType msgType = 1;
+    protocol.common.PlayerInfo info = 2;
+    bool isSuccess = 3;
+    optional string errMsg = 4;
+}
+
+
+enum CSChatMsgType{
+    EN_SEND = 0;
+    EN_RECEIVE = 1;
+    EN_HISTORY = 2;
+}
+
+
+message CSMsgRsp{
+    CSMsgType msgType = 1;
+    oneof body{
+        CSLoginMsgRsp loginRsp = 2;
+    }
+}
+

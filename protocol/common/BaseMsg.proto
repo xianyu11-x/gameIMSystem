@@ -1,0 +1,32 @@
+syntax = "proto3";
+package protocol.common;
+
+
+enum MsgType{
+    EN_MSG_TYPE_CS = 0;
+    EN_MSG_TYPE_SS = 1;
+}
+
+enum MsgSender{
+    EN_MSG_SENDER_CLIENT = 0;
+    EN_MSG_SENDER_GATESVR = 1;
+    EN_MSG_SENDER_CHATSVR = 2;
+    EN_MSG_SENDER_LOGINSVR = 3;
+    EN_MSG_SENDER_WHISPERSVR = 4;
+}
+
+enum MsgBodyType{
+    EN_REQ = 0;
+    EN_RSP = 1;
+}
+
+message MsgInfo{
+    MsgType msgType = 1;
+    MsgSender msgSender = 2;
+    MsgBodyType msgBodyType = 3;
+}
+
+message baseMsg{
+    MsgInfo msgInfo = 1;
+    bytes msgBody = 2;
+}

@@ -1,0 +1,8 @@
+syntax = "proto3";
+package protocol.common;
+
+message PlayerInfo{
+    int32 playerId = 1;
+    string playerName = 2;
+    string playerToken = 3;
+}
