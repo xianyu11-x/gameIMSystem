@@ -1,4 +1,5 @@
 #include "coroio/address.hpp"
+#include "coroio/corochain.hpp"
 #include "coroio/epoll.hpp"
 #include "coroio/promises.hpp"
 #include <coroio/all.hpp>
@@ -19,7 +20,7 @@ public:
     virtual ~baseServer() = default;
 
     // 子类需要实现的消息处理函数
-    virtual TVoidTask handleMessage(TEPoll::TSocket& socket,const std::string& message, std::string& response)=0;
+    virtual TFuture<void> handleMessage(TEPoll::TSocket& socket,const std::string& message, std::string& response)=0;
 
     //建立连接后对Socket的预处理
     virtual void prepareSocket(TEPoll::TSocket& socket)=0;

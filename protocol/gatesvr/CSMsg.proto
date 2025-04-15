@@ -18,7 +18,7 @@ message CSMsgReq{
 
 enum CSLoginMsgType{
     EN_PLAYER_LOGIN = 0;
-    EN_PLAYER_LOOUT = 1;
+    EN_PLAYER_LOGOUT = 1;
 }
 
 

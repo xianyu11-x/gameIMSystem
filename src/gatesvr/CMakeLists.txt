@@ -1,11 +1,13 @@
 set_source_files_properties(${MSG_SRCS} PROPERTIES GENERATED TRUE)
+file(GLOB_RECURSE SVR_ACTION action/*.cpp)
 set(SRC
     gate.cpp
     gateServer.cpp
     ../util/server.cpp
     ../util/baseMsgHelper.cpp
     ../util/sendMsg.cpp
-    action/csLogin.cpp
+    ../loginsvr/sdk/sendLoginMsg.cpp
+    ${SVR_ACTION}
     ${MSG_SRCS}
     )
 add_executable(gatesvr ${SRC})

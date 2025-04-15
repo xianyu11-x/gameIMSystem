@@ -1,41 +1,56 @@
+#include "common/BaseMsg.pb.h"
+#include "common/SSMsg.pb.h"
 #include "gatesvr/gateServer.h"
+#include "loginsvr/sdk/sendLoginMsg.h"
 #include "util/sendMsg.h"
 #include <sys/socket.h>
 
-TVoidTask gateServer::csLogin(const int socketFd,const std::string& message, std::string& response){
-    protocol::common::PlayerInfo playerInfo;
-        if (!playerInfo.ParseFromString(message)) {
-            std::cerr << "Failed to parse login player" << std::endl;
-            co_return;
-        }
+TFuture<void> gateServer::csLogin(const int socketFd,
+                                  const std::string &message,
+                                  std::string &response) {
+  protocol::common::PlayerInfo playerInfo;
+  if (!playerInfo.ParseFromString(message)) {
+    std::cerr << "Failed to parse login player" << std::endl;
+    co_return;
+  }
 
+  auto curPlayerName = playerInfo.playername();
+  if (activePlayers.find(curPlayerName) != activePlayers.end()) {
+    std::cerr << "Player already logged in" << std::endl;
+    // co_await activePlayers[curPlayerName]->WriteSome("Player already logged
+    // in", 24);
+    co_return;
+  }
 
-        auto curPlayerName = playerInfo.playername();
-        if(activePlayers.find(curPlayerName) != activePlayers.end()) {
-            std::cerr << "Player already logged in" << std::endl;
-            //co_await activePlayers[curPlayerName]->WriteSome("Player already logged in", 24);
-            co_return;
-        }
+  // TODO:向实际loginsvr发送登录请求
+  auto rspStr =
+      co_await sendLoginMsg(serverPoller, curPlayerName,
+                            protocol::common::MsgSender::EN_MSG_SENDER_GATESVR);
+  protocol::ssmsg::SSMsgRsp rsp;
+  rsp.ParseFromString(rspStr);
+  auto ssLoginRsp = rsp.loginrsp();
 
-        //TODO:向实际loginsvr发送登录请求
-        auto rsp = co_await sendMsg(serverPoller, "127.0.0.1:10001", "123455");
+  protocol::csmsg::CSMsgRsp csRsp;
+  csRsp.set_msgtype(protocol::csmsg::CSMsgType::EN_LOGIN);
+  auto loginRsp = csRsp.mutable_loginrsp();
+  loginRsp->set_msgtype(protocol::csmsg::CSLoginMsgType::EN_PLAYER_LOGIN);
+  auto loginedPlayer = loginRsp->mutable_info();
+  // 目前简单返回一下
+  loginedPlayer->set_playertoken(ssLoginRsp.playerinfo().playertoken());
+  loginedPlayer->set_playername(ssLoginRsp.playerinfo().playername());
+  loginedPlayer->set_playerid(ssLoginRsp.playerinfo().playerid());
+  loginRsp->set_issuccess(ssLoginRsp.issuccess());
 
+  if (loginRsp->issuccess()) {
+    auto it = connectedClients.find(socketFd);
+    if (it != connectedClients.end()) {
+      activePlayers.insert({playerInfo.playername(), it->second});
+    }
+    std::cout << "Player login success, player name: "
+              << playerInfo.playername() << std::endl;
+  } else {
+  }
+  response = csRsp.SerializeAsString();
 
-        protocol::csmsg::CSMsgRsp msgRsp;
-        msgRsp.set_msgtype(protocol::csmsg::CSMsgType::EN_CHAT);
-        auto loginRsp = msgRsp.mutable_loginrsp();
-        loginRsp->set_msgtype(protocol::csmsg::CSLoginMsgType::EN_PLAYER_LOGIN);
-        auto loginedPlayer = loginRsp->mutable_info();
-        //目前简单返回一下
-        loginedPlayer->set_playertoken("213456789");
-        loginedPlayer->set_playername(playerInfo.playername());
-        loginedPlayer->set_playerid(123456);
-        loginRsp->set_issuccess(true);
-        response = msgRsp.SerializeAsString();
-        auto it = connectedClients.find(socketFd);
-        if(it != connectedClients.end()){
-            activePlayers.insert({playerInfo.playername(), it->second});
-        }
-        
-        co_return;
+  co_return;
 }

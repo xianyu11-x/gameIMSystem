@@ -16,7 +16,7 @@ TVoidTask baseServer::client_handler(TEPoll::TSocket socket,int buffer_size){
                                                     buffer_size)) > 0) {
         std::string message(buffer.data(), size);
         std::string response;
-        handleMessage(socket,message, response);
+        co_await handleMessage(socket,message, response);
         if (!response.empty()) {
           co_await socket.WriteSome(response.data(), response.size());
         }

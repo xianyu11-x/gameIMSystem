@@ -7,33 +7,57 @@
 #include <iostream>
 #include <string>
 
-loginServer::loginServer(NNet::TEPoll& poller,std::string address,int bufferSize):baseServer(poller,address,bufferSize) { registerHandler(); }
+loginServer::loginServer(NNet::TEPoll &poller, std::string address,
+                         int bufferSize)
+    : baseServer(poller, address, bufferSize) {
+  registerHandler();
+}
 
 void loginServer::registerHandler() {
   // 注册处理函数
   using namespace std::placeholders;
-
+  loginHandlerMap[protocol::ssloginmsg::SSLoginMsgType::EN_PLAYER_LOGIN] =
+      std::bind(&loginServer::ssLogin, this, _1, _2, _3);
+  loginHandlerMap[protocol::ssloginmsg::SSLoginMsgType::EN_PLAYER_LOGOUT] =
+      std::bind(&loginServer::ssLogout, this, _1, _2, _3);
+  ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_LOGIN] =
+      std::bind(&loginServer::loginMsgHandler, this, _1, _2, _3);
 }
 
-TVoidTask loginServer::handleMessage(NNet::TEPoll::TSocket &socket,
-                                    const std::string &message,
-                                    std::string &response) {
+TFuture<void> loginServer::loginMsgHandler(const int socketFd,
+                                           const std::string &message,
+                                           std::string &response) {
+  protocol::ssmsg::SSMsgReq req;
+  req.ParseFromString(message);
+  std::string ssMsgRspStr;
+  co_await loginHandlerMap[req.loginreq().msgtype()](
+      socketFd, req.loginreq().playerinfo().SerializeAsString(), ssMsgRspStr);
+  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+                           protocol::common::MsgSender::EN_MSG_SENDER_LOGINSVR,
+                           protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+  co_return;
+}
+
+TFuture<void> loginServer::handleMessage(NNet::TEPoll::TSocket &socket,
+                                     const std::string &message,
+                                     std::string &response) {
   // 处理消息并生成响应
   std::cout << "Received message " << std::endl;
-  response = "login success";
-  // response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
-  // protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-  // protocol::common::MsgBodyType::EN_RSP, message); auto checkedMsg =
-  // parserStringToBaseMsg(response); std::cout << "Parsed message: " <<
-  // checkedMsg.msgbody() << std::endl; std::cout << "Parsed message type: " <<
-  // checkedMsg.msginfo().msgtype() << std::endl; std::cout << "Parsed message
-  // sender: " << checkedMsg.msginfo().msgsender() << std::endl; std::cout <<
-  // "Parsed message body type: " << checkedMsg.msginfo().msgbodytype() <<
-  // std::endl; auto& savedSocket = connectedClients.begin()->second;
-  // std::string uuid = connectedClients.begin()->first;
-  // std::cout<<uuid<< std::endl;
-  // std::string sendStr="push to client";
-  // co_await savedSocket.WriteSome(sendStr.data(), sendStr.size());
+  auto msg = parseStringToBaseMsg(message);
+  if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
+    if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_SS) {
+      protocol::ssmsg::SSMsgReq req;
+      req.ParseFromString(msg.msgbody());
+      co_await ssMsgHandlerMap[req.msgtype()](
+          socket.Fd(), req.SerializeAsString(), response);
+    } else if (msg.msginfo().msgtype() ==
+               protocol::common::MsgType::EN_MSG_TYPE_SS) {
+
+    } else {
+      std::cerr << "Unknown message type" << std::endl;
+    }
+  }
+
   co_return;
 }
 

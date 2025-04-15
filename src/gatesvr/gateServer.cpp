@@ -14,9 +14,25 @@ void gateServer::registerHandler() {
   using namespace std::placeholders;
   loginHandlerMap[protocol::csmsg::CSLoginMsgType::EN_PLAYER_LOGIN] =
       std::bind(&gateServer::csLogin, this, _1, _2, _3);
+  loginHandlerMap[protocol::csmsg::CSLoginMsgType::EN_PLAYER_LOGOUT] =
+      std::bind(&gateServer::csLogout, this, _1, _2, _3);
+  csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_LOGIN] =
+      std::bind(&gateServer::loginMsgHandler, this, _1, _2, _3);
 }
 
-TVoidTask gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
+
+TFuture<void> gateServer::loginMsgHandler(const int socketFd,const std::string& message, std::string& response){
+  protocol::csmsg::CSMsgReq req;
+  req.ParseFromString(message);
+  std::string csMsgRspStr;
+  co_await loginHandlerMap[req.loginreq().msgtype()](socketFd, req.loginreq().info().SerializeAsString(), csMsgRspStr);
+  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+                                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                                    protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);
+  co_return;
+}
+
+TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                     const std::string &message,
                                     std::string &response) {
   // 处理消息并生成响应
@@ -26,10 +42,11 @@ TVoidTask gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
     if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_CS) {
       protocol::csmsg::CSMsgReq req;
       req.ParseFromString(msg.msgbody());
-      if (req.csmsgtype() == protocol::csmsg::CSMsgType::EN_LOGIN) {
-        loginHandlerMap[req.loginreq().msgtype()](
-            socket.Fd(), req.loginreq().info().SerializeAsString(), response);
-      }
+      co_await csMsgHandlerMap[req.csmsgtype()](socket.Fd(), req.SerializeAsString(), response);
+    }else if(msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_SS){
+
+    }else{
+      std::cerr << "Unknown message type" << std::endl;
     }
   }
   // response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,

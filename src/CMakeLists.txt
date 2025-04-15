@@ -67,5 +67,5 @@ add_subdirectory(loginsvr)
 # target_link_libraries(test coroio)
 
 
-add_executable(client test/client.cpp ${MSG_SRCS})
+add_executable(client test/client.cpp util/baseMsgHelper.cpp ${MSG_SRCS})
 target_link_libraries(client coroio ${PROTOBUF_LIBRARIES})

@@ -1,0 +1,21 @@
+syntax = "proto3";
+package protocol.ssloginmsg;
+import "common/player.proto";
+
+enum SSLoginMsgType{
+    EN_PLAYER_LOGIN = 0;
+    EN_PLAYER_LOGOUT = 1;
+}
+
+
+message SSLoginMsgReq{
+    SSLoginMsgType msgType = 1;
+    protocol.common.PlayerInfo playerInfo = 2;
+}
+
+message SSLoginMsgRsp{
+    SSLoginMsgType msgType = 1;
+    protocol.common.PlayerInfo playerInfo = 2;
+    bool isSuccess = 3;
+    optional string errMsg = 4;
+}

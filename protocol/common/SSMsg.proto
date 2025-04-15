@@ -1,0 +1,25 @@
+syntax = "proto3";
+package protocol.ssmsg;
+import "loginsvr/SSLoginMsg.proto";
+
+enum SSMsgType{
+    EN_UNKOWN = 0;
+    EN_HEARTBEAT = 1;
+    EN_LOGIN = 2;
+    EN_CHAT = 3;
+    EN_WHISPER = 4;
+}
+
+message SSMsgReq{
+    SSMsgType msgType = 1;
+    oneof body{
+        protocol.ssloginmsg.SSLoginMsgReq loginReq = 2;
+    }
+}
+
+message SSMsgRsp{
+    SSMsgType msgType = 1;
+    oneof body{
+        protocol.ssloginmsg.SSLoginMsgRsp loginRsp = 2;
+    }
+}
