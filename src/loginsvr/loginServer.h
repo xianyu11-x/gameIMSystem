@@ -24,8 +24,7 @@ private:
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
     void prepareSocket(NNet::TEPoll::TSocket& socket) override;
     void afterSocket(NNet::TEPoll::TSocket& socket) override{};
-    std::unordered_map<std::string,NNet::TEPoll::TSocket*> activePlayers;
-    std::unordered_map<int,NNet::TEPoll::TSocket*> connectedClients;
+
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
     std::unordered_map<protocol::ssloginmsg::SSLoginMsgType, HandlerFunction> loginHandlerMap;

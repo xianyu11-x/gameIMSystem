@@ -46,6 +46,8 @@ TFuture<void> gateServer::csLogin(const int socketFd,
     auto it = connectedClients.find(socketFd);
     if (it != connectedClients.end()) {
       activePlayers.insert({playerInfo.playername(), it->second});
+      playerIdToPlayerName.insert(
+          {playerInfo.playerid(), playerInfo.playername()});
     }
     std::cout << "Player login success, player name: "
               << playerInfo.playername() << std::endl;

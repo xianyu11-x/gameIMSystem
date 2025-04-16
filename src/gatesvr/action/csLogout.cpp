@@ -31,6 +31,7 @@ TFuture<void> gateServer::csLogout(const int socketFd,
   logoutRsp->set_issuccess(ssLogoutRsp.issuccess());
   if(logoutRsp->issuccess()) {
     activePlayers.erase(ssLogoutRsp.playerinfo().playername());
+    playerIdToPlayerName.erase(ssLogoutRsp.playerinfo().playerid());
     std::cout << "Player logout success, player name: "
               << playerInfo.playername() << std::endl;
     logger->info("Player logout success, player name: {}",
