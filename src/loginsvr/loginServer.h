@@ -7,6 +7,8 @@
 #include <vector>
 #include "common/BaseMsg.pb.h"
 #include "common/SSMsg.pb.h"
+#include "spdlog/logger.h"
+#include <sw/redis++/redis++.h>
 #pragma once
 
 class loginServer : public baseServer {
@@ -29,4 +31,7 @@ private:
     std::unordered_map<protocol::ssloginmsg::SSLoginMsgType, HandlerFunction> loginHandlerMap;
     std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction> ssMsgHandlerMap;
     int nextPlayerId = 1;
+
+    std::unique_ptr<sw::redis::Redis> redis_ptr;
+    std::shared_ptr<spdlog::logger> logger;
 };

@@ -9,6 +9,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 set(CO_ASYNC_INVALFIX ON)
 
+if(NOT TARGET spdlog)
+    # Stand-alone build
+    find_package(spdlog REQUIRED)
+endif()
+
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  ${CMAKE_SOURCE_DIR}/bin)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)

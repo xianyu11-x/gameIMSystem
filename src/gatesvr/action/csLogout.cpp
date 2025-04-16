@@ -8,13 +8,14 @@ TFuture<void> gateServer::csLogout(const int socketFd,
   protocol::common::PlayerInfo playerInfo;
   if (!playerInfo.ParseFromString(message)) {
     std::cerr << "Failed to parse player info" << std::endl;
+    logger->error("Failed to parse player info");
     co_return;
   }
   std::string curPlayerName = playerInfo.playername();
   if (activePlayers.find(curPlayerName) == activePlayers.end()) {
     std::cerr << "Player already logged out" << std::endl;
-    // co_await activePlayers[curPlayerName]->WriteSome("Player already logged
-    // in", 24);
+    logger->warn("Player already logged out, player name: {}",
+                 playerInfo.playername());
     co_return;
   }
   auto res = co_await sendLogoutMsg(
@@ -32,8 +33,12 @@ TFuture<void> gateServer::csLogout(const int socketFd,
     activePlayers.erase(ssLogoutRsp.playerinfo().playername());
     std::cout << "Player logout success, player name: "
               << playerInfo.playername() << std::endl;
+    logger->info("Player logout success, player name: {}",
+                 playerInfo.playername());
   } else {
     std::cerr << "Player logout failed" << std::endl;
+    logger->error("Player logout failed, player name: {}",
+                  playerInfo.playername());
   }
   co_return;
 }

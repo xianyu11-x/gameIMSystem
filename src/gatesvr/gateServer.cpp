@@ -5,9 +5,16 @@
 #include "util/baseMsgHelper.h"
 #include "util/uuid.hpp"
 #include <iostream>
+#include <spdlog/async.h>
 #include <string>
+#include "spdlog/sinks/rotating_file_sink.h"
 
-gateServer::gateServer(NNet::TEPoll& poller,std::string address,int bufferSize):baseServer(poller,address,bufferSize) { registerHandler(); }
+gateServer::gateServer(NNet::TEPoll& poller,std::string address,int bufferSize):baseServer(poller,address,bufferSize) { 
+  logger = spdlog::rotating_logger_mt<spdlog::async_factory>("gateSvrLogger", "logs/gateSvrLogger.txt",1048576 * 5,2);
+  logger->set_level(spdlog::level::debug);
+  logger->flush_on(spdlog::level::debug);
+  registerHandler(); 
+}
 
 void gateServer::registerHandler() {
   // 注册处理函数
@@ -37,6 +44,7 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                     std::string &response) {
   // 处理消息并生成响应
   std::cout << "Received message " << std::endl;
+  logger->info("Received a message");
   auto msg = parseStringToBaseMsg(message);
   if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
     if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_CS) {

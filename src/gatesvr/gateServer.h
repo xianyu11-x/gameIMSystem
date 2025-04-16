@@ -2,11 +2,14 @@
 #include "util/server.h"
 #include "coroio/all.hpp"
 #include <functional>
+#include <memory>
+#include <spdlog/logger.h>
 #include <unordered_map>
 #include <vector>
 #include "common/BaseMsg.pb.h"
 #include "gatesvr/CSMsg.pb.h"
-
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/async.h"
 #pragma once
 
 class gateServer : public baseServer {
@@ -28,4 +31,6 @@ private:
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
     std::unordered_map<protocol::csmsg::CSLoginMsgType, HandlerFunction> loginHandlerMap;
     std::unordered_map<protocol::csmsg::CSMsgType, HandlerFunction> csMsgHandlerMap;
+
+    std::shared_ptr<spdlog::logger> logger;
 };

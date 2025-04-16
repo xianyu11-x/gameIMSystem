@@ -11,14 +11,15 @@ TFuture<void> gateServer::csLogin(const int socketFd,
   protocol::common::PlayerInfo playerInfo;
   if (!playerInfo.ParseFromString(message)) {
     std::cerr << "Failed to parse login player" << std::endl;
+    logger->error("Failed to parse login player");
     co_return;
   }
 
   auto curPlayerName = playerInfo.playername();
   if (activePlayers.find(curPlayerName) != activePlayers.end()) {
     std::cerr << "Player already logged in" << std::endl;
-    // co_await activePlayers[curPlayerName]->WriteSome("Player already logged
-    // in", 24);
+    logger->warn("Player already logged in, player name: {}",
+                 playerInfo.playername());
     co_return;
   }
 
@@ -48,6 +49,8 @@ TFuture<void> gateServer::csLogin(const int socketFd,
     }
     std::cout << "Player login success, player name: "
               << playerInfo.playername() << std::endl;
+    logger->info("Player login success, player name: {}",
+                 playerInfo.playername());
   } else {
   }
   response = csRsp.SerializeAsString();

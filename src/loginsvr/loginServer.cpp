@@ -5,11 +5,19 @@
 #include "util/baseMsgHelper.h"
 #include "util/uuid.hpp"
 #include <iostream>
+#include <memory>
 #include <string>
-
+#include <sw/redis++/redis.h>
+#include "spdlog/async.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 loginServer::loginServer(NNet::TEPoll &poller, std::string address,
                          int bufferSize)
-    : baseServer(poller, address, bufferSize) {
+    : baseServer(poller, address, bufferSize){
+  logger = spdlog::rotating_logger_mt<spdlog::async_factory>(
+      "loginSvrLogger", "logs/loginSvrLogger.txt", 1048576 * 5,2);
+  logger->set_level(spdlog::level::debug);
+  logger->flush_on(spdlog::level::debug);
+  redis_ptr = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379");
   registerHandler();
 }
 
