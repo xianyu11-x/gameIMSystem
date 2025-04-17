@@ -29,7 +29,6 @@ private:
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
     std::unordered_map<protocol::ssloginmsg::SSLoginMsgType, HandlerFunction> loginHandlerMap;
     std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction> ssMsgHandlerMap;
-    int nextPlayerId = 1;
 
     std::unique_ptr<sw::redis::Redis> redis_ptr;
     std::shared_ptr<spdlog::logger> logger;
