@@ -1,0 +1,25 @@
+syntax = "proto3";
+package protocol.sschatmsg;
+
+import "common/player.proto";
+import "common/chatMessage.proto";
+
+enum SSChatMsgType{
+    EN_SEND = 0;
+    EN_RECEIVE = 1;
+    EN_HISTORY = 2;
+}
+
+message SSChatMsgReq{
+    SSChatMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    protocol.common.PlayerInfo receivePlayer = 3;
+    repeated protocol.common.chatMessage chatMessage = 4;
+}
+
+message SSChatMsgRsp{
+    SSChatMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    bool isSuccess = 3;
+    optional string errMsg = 4;
+}

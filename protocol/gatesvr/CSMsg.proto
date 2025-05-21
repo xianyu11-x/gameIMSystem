@@ -1,6 +1,8 @@
 syntax = "proto3";
-package protocol.csmsg;
 import "common/player.proto";
+import "common/chatMessage.proto";
+package protocol.csmsg;
+
 enum CSMsgType{
     EN_UNKOWN = 0;
     EN_HEARTBEAT = 1;
@@ -13,6 +15,7 @@ message CSMsgReq{
     CSMsgType CSMsgType = 1;
     oneof body{
         CSLoginMsgReq loginReq = 2;
+        CSChatMsgReq chatReq = 3;
     }
 }
 
@@ -43,10 +46,27 @@ enum CSChatMsgType{
 }
 
 
+
+message CSChatMsgReq{
+    CSChatMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    protocol.common.PlayerInfo receivePlayer = 3;
+    repeated protocol.common.chatMessage chatMessage = 4;
+}
+
+message CSChatMsgRsp{
+    CSChatMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    bool isSuccess = 3;
+    optional string errMsg = 4;
+}
+
+
 message CSMsgRsp{
     CSMsgType msgType = 1;
     oneof body{
         CSLoginMsgRsp loginRsp = 2;
+        CSChatMsgRsp chatRsp = 3;
     }
 }
 
