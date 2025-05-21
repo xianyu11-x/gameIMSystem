@@ -1,5 +1,6 @@
 #include "sendMsg.h"
 #include "coroio/address.hpp"
+#include "coroio/corochain.hpp"
 #include "coroio/epoll.hpp"
 
 NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,const std::string& address,const std::string& message){
@@ -12,6 +13,17 @@ NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,const std::string& addre
     std::string response;
     std::vector<char> in(maxLineSize);
     size_t size = co_await socket.ReadSome(in.data(), in.size());
+    if (size > 0) {
+        response.assign(in.data(), size);
+    }
+    co_return response;
+}
+
+NNet::TFuture<std::string> sendMsg(NNet::TSocket* socket, const std::string &message) {
+    co_await socket->WriteSome(message.data(), message.size());
+    std::string response;
+    std::vector<char> in(4096);
+    size_t size = co_await socket->ReadSome(in.data(), in.size());
     if (size > 0) {
         response.assign(in.data(), size);
     }

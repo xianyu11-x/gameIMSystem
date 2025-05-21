@@ -1,3 +1,5 @@
+#include "chatsvr/SSChatMsg.pb.h"
+#include "coroio/corochain.hpp"
 #include "coroio/epoll.hpp"
 #include "util/server.h"
 #include "coroio/all.hpp"
@@ -7,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include "common/BaseMsg.pb.h"
+#include "common/SSMsg.pb.h"
 #include "gatesvr/CSMsg.pb.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/async.h"
@@ -20,7 +23,10 @@ private:
     TFuture<void> csLogin(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csLogout(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> loginMsgHandler(const int socketFd,const std::string& message, std::string& response);
-
+    TFuture<void> csSendChatMsg(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> chatMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> ssPushChatMsg(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> ssChatMsgHandler(const int socketFd,const std::string& message, std::string& response);
     void registerHandler();
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
     void prepareSocket(NNet::TEPoll::TSocket& socket) override;
@@ -30,8 +36,10 @@ private:
     std::unordered_map<int,NNet::TEPoll::TSocket*> connectedClients;
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
-    std::unordered_map<protocol::csmsg::CSLoginMsgType, HandlerFunction> loginHandlerMap;
+    std::unordered_map<protocol::csmsg::CSLoginMsgType, HandlerFunction> csLoginHandlerMap;
+    std::unordered_map<protocol::csmsg::CSChatMsgType, HandlerFunction> csChatHandlerMap;
     std::unordered_map<protocol::csmsg::CSMsgType, HandlerFunction> csMsgHandlerMap;
-
+    std::unordered_map<protocol::sschatmsg::SSChatMsgType, HandlerFunction> ssChatMsgHandlerMap;
+    std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction> ssMsgHandlerMap;
     std::shared_ptr<spdlog::logger> logger;
 };

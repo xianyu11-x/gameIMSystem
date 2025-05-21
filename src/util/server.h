@@ -2,8 +2,11 @@
 #include "coroio/corochain.hpp"
 #include "coroio/epoll.hpp"
 #include "coroio/promises.hpp"
+#include "coroio/socket.hpp"
 #include <coroio/all.hpp>
+#include <coroutine>
 #include <string>
+#include <unordered_map>
 #include <util/addressHelper.hpp>
 #pragma once
 using namespace NNet;
@@ -31,8 +34,11 @@ public:
 
     TVoidTask start();
 
-    //void run(int port,int buffer_size = 128);
+    void wakeUpClientCoroutine(TEPoll::TSocket* socket); 
 
+    void removeClientCoroutine(TEPoll::TSocket* socket);
+    //void run(int port,int buffer_size = 128);
+    std::unordered_map<int, std::coroutine_handle<>> clientCoroutines;
     TEPoll& serverPoller;
     TAddress serverAddress;
     int bufferSize;

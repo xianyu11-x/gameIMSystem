@@ -31,6 +31,7 @@ foreach(PROTO ${MSG_PROTOS})
              "${PROTO_H}"
       COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
       ARGS --cpp_out  ${PROTO_META_BASE_DIR}
+        --python_out  ${PROTO_META_BASE_DIR}
         -I ${CMAKE_SOURCE_DIR}/protocol
         ${PROTO}
       DEPENDS ${PROTO}
@@ -55,7 +56,7 @@ include_directories(${CMAKE_BINARY_DIR}/protocol)
 
 
 #server构建
-# add_subdirectory(chatsvr)
+add_subdirectory(chatsvr)
 add_subdirectory(gatesvr)
 # add_subdirectory(whispersvr)
 add_subdirectory(loginsvr)
