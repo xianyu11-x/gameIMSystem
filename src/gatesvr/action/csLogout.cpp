@@ -1,6 +1,6 @@
 #include "common/SSMsg.pb.h"
 #include "gatesvr/gateServer.h"
-#include "loginsvr/sdk/sendLogoutMsg.h"
+#include "loginsvr/api/sendLogoutMsg.h"
 
 TFuture<void> gateServer::csLogout(const int socketFd,
                                    const std::string &message,
@@ -32,6 +32,7 @@ TFuture<void> gateServer::csLogout(const int socketFd,
   if(logoutRsp->issuccess()) {
     activePlayers.erase(ssLogoutRsp.playerinfo().playername());
     playerIdToPlayerName.erase(ssLogoutRsp.playerinfo().playerid());
+    socketFdToPlayerId.erase(socketFd);
     std::cout << "Player logout success, player name: "
               << playerInfo.playername() << std::endl;
     logger->info("Player logout success, player name: {}",

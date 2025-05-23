@@ -23,7 +23,7 @@ private:
     void registerHandler();
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
     void prepareSocket(NNet::TEPoll::TSocket& socket) override;
-    void afterSocket(NNet::TEPoll::TSocket& socket) override{};
+    TFuture<void> afterSocket(NNet::TEPoll::TSocket& socket) override{co_return;};
 
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;

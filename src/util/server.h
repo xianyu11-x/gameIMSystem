@@ -28,7 +28,7 @@ public:
     //建立连接后对Socket的预处理
     virtual void prepareSocket(TEPoll::TSocket& socket)=0;
 
-    virtual void afterSocket(TEPoll::TSocket& socket)=0;
+    virtual TFuture<void> afterSocket(TEPoll::TSocket& socket)=0;
 
     TVoidTask client_handler(TEPoll::TSocket socket,int buffer_size);
 

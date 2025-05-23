@@ -1,8 +1,10 @@
 #include "gateServer.h"
 #include "chatsvr/SSChatMsg.pb.h"
 #include "common/BaseMsg.pb.h"
+#include "common/SSMsg.pb.h"
 #include "coroio/promises.hpp"
 #include "gatesvr/CSMsg.pb.h"
+#include "loginsvr/api/sendLogoutMsg.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "util/baseMsgHelper.h"
 #include "util/uuid.hpp"
@@ -32,6 +34,8 @@ void gateServer::registerHandler() {
       std::bind(&gateServer::loginMsgHandler, this, _1, _2, _3);
   csChatHandlerMap[protocol::csmsg::CSChatMsgType::EN_SEND] =
       std::bind(&gateServer::csSendChatMsg, this, _1, _2, _3);
+  csChatHandlerMap[protocol::csmsg::CSChatMsgType::EN_HISTORY] =
+      std::bind(&gateServer::csPullHistoryChatMsg, this, _1, _2, _3);
   csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_CHAT] =
       std::bind(&gateServer::chatMsgHandler, this, _1, _2, _3);
   ssChatMsgHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_RECEIVE] =
@@ -80,7 +84,7 @@ TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,
                            protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
                            protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
   co_return;
-} 
+}
 
 TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                         const std::string &message,
@@ -124,4 +128,38 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
 void gateServer::prepareSocket(NNet::TEPoll::TSocket &socket) {
   // 在这里可以对socket进行一些预处理，比如设置非阻塞模式等
   connectedClients.insert({socket.Fd(), &socket});
+}
+
+TFuture<void> gateServer::afterSocket(NNet::TEPoll::TSocket &socket) {
+  int fd = socket.Fd();
+  auto playerIdIter = socketFdToPlayerId.find(fd);
+  if (playerIdIter != socketFdToPlayerId.end()) {
+    auto playerId = playerIdIter->second;
+    auto playerName = playerIdToPlayerName.find(playerId)->second;
+    protocol::common::PlayerInfo playerInfo;
+    playerInfo.set_playerid(playerId);
+    playerInfo.set_playername(playerName);
+    auto rsp = co_await sendLogoutMsg(
+        serverPoller, playerInfo,
+        protocol::common::MsgSender::EN_MSG_SENDER_GATESVR);
+    protocol::ssmsg::SSMsgRsp ssMsgRsp;
+    ssMsgRsp.ParseFromString(rsp);
+    auto ssLogoutRsp = ssMsgRsp.loginrsp();
+    if (ssLogoutRsp.issuccess()) {
+      activePlayers.erase(playerName);
+      playerIdToPlayerName.erase(playerId);
+      std::cout << "Player logout success, player name: "
+                << playerInfo.playername() << std::endl;
+      logger->info("Player logout success, player name: {}",
+                   playerInfo.playername());
+    } else {
+      std::cerr << "Player logout failed" << std::endl;
+      logger->error("Player logout failed, player name: {}",
+                    playerInfo.playername());
+    }
+  }
+  socketFdToPlayerId.erase(fd);
+  connectedClients.erase(fd);
+  socket.Close();
+  co_return;
 }

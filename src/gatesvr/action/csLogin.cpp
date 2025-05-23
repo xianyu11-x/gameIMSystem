@@ -1,7 +1,7 @@
 #include "common/BaseMsg.pb.h"
 #include "common/SSMsg.pb.h"
 #include "gatesvr/gateServer.h"
-#include "loginsvr/sdk/sendLoginMsg.h"
+#include "loginsvr/api/sendLoginMsg.h"
 #include "util/sendMsg.h"
 #include <sys/socket.h>
 
@@ -45,15 +45,27 @@ TFuture<void> gateServer::csLogin(const int socketFd,
   if (loginRsp->issuccess()) {
     auto it = connectedClients.find(socketFd);
     if (it != connectedClients.end()) {
-      activePlayers.insert({playerInfo.playername(), it->second});
+      activePlayers.insert({ssLoginRsp.playerinfo().playername(), it->second});
+      socketFdToPlayerId.insert({socketFd, ssLoginRsp.playerinfo().playerid()});
       playerIdToPlayerName.insert(
-          {playerInfo.playerid(), playerInfo.playername()});
+          {ssLoginRsp.playerinfo().playerid(), ssLoginRsp.playerinfo().playername()});
+    }else{
+      std::cerr << "Player not found in connected clients" << std::endl;
+      logger->error("Player not found in connected clients");
+      loginRsp->set_issuccess(false);
+      loginRsp->set_errmsg("Player not found in connected clients");
+      response = csRsp.SerializeAsString();
+      co_return;
     }
     std::cout << "Player login success, player name: "
               << playerInfo.playername() << std::endl;
     logger->info("Player login success, player name: {}",
                  playerInfo.playername());
   } else {
+    std::cerr << "Player login failed" << std::endl;
+    logger->error("Player login failed, player name: {}",
+                  playerInfo.playername());
+    loginRsp->set_errmsg(ssLoginRsp.errmsg());
   }
   response = csRsp.SerializeAsString();
 

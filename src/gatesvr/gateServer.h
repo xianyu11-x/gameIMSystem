@@ -24,15 +24,17 @@ private:
     TFuture<void> csLogout(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> loginMsgHandler(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csSendChatMsg(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> csPullHistoryChatMsg(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> chatMsgHandler(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> ssPushChatMsg(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> ssChatMsgHandler(const int socketFd,const std::string& message, std::string& response);
     void registerHandler();
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
     void prepareSocket(NNet::TEPoll::TSocket& socket) override;
-    void afterSocket(NNet::TEPoll::TSocket& socket) override{};
+    TFuture<void> afterSocket(NNet::TEPoll::TSocket& socket) override;
     std::unordered_map<std::string,NNet::TEPoll::TSocket*> activePlayers;
     std::unordered_map<int64_t,std::string> playerIdToPlayerName;
+    std::unordered_map<int,int> socketFdToPlayerId;
     std::unordered_map<int,NNet::TEPoll::TSocket*> connectedClients;
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;

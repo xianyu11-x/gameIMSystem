@@ -67,6 +67,7 @@ TVoidTask baseServer::client_handler(TEPoll::TSocket socket, int buffer_size) {
   if (size == 0) {
     std::cerr << "Client disconnected" << std::endl;
   }
+  co_await afterSocket(socket);
   co_return;
 }
 

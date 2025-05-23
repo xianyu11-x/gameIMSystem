@@ -11,3 +11,5 @@ redis：hiredis+redis_plus_plus
 TODO:
 
 服务发现功能接入
+
+以gitsubmodule的方式接入其他库
