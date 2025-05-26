@@ -1,5 +1,7 @@
+.clangd
 .cache/
 build/
 src/libtest/
 bin/
+lib/
 src/test/

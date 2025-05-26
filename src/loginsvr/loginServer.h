@@ -2,6 +2,7 @@
 #include "coroio/epoll.hpp"
 #include "util/server.h"
 #include "coroio/all.hpp"
+#include <string>
 #include <functional>
 #include <unordered_map>
 #include <vector>
