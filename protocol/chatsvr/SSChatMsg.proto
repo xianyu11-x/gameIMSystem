@@ -22,4 +22,5 @@ message SSChatMsgRsp{
     protocol.common.PlayerInfo sendPlayer = 2;
     bool isSuccess = 3;
     optional string errMsg = 4;
+    repeated protocol.common.chatMessage chatMessage = 5;
 }

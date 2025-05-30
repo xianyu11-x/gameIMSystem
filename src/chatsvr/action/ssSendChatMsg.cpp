@@ -3,6 +3,7 @@
 #include "common/SSMsg.pb.h"
 #include "coroio/corochain.hpp"
 #include "util/uuid.hpp"
+#include <utility>
 
 TFuture<void> chatServer::ssSendChatMsg(const int socketFd,
                                         const std::string &message,
@@ -54,6 +55,9 @@ TFuture<void> chatServer::ssSendChatMsg(const int socketFd,
   if (redis_ptr->sismember("onlineSet", *receivePlayerId)) {
     ssPushMsg(ssChatMsg, protocol::common::MsgSender::EN_MSG_SENDER_CHATSVR,
               msgSeq);
+  }else{
+    redis_ptr->hmset("chat:unread:" + *receivePlayerId,
+                     {std::make_pair(*sendPlayerId, msgSeq)});
   }
   chatRsp->set_allocated_sendplayer(
       new protocol::common::PlayerInfo(ssChatMsg.sendplayer()));

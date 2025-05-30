@@ -3,7 +3,7 @@
 #include "coroio/corochain.hpp"
 #include "gatesvr/CSMsg.pb.h"
 #include "gatesvr/gateServer.h"
-#include "chatsvr/sdk/sendChatMsg.h"
+#include "chatsvr/api/sendChatMsg.h"
 #include <sys/socket.h>
 
 TFuture<void> gateServer::csSendChatMsg(const int socketFd,const std::string& message, std::string& response){

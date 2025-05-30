@@ -8,7 +8,7 @@
 #include "util/baseMsgHelper.h"
 #include "util/sendMsg.h"
 NNet::TVoidTask
-chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq &ssChatMsg,
+chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
                       protocol::common::MsgSender msgSender, int expectAck) {
   protocol::ssmsg::SSMsgReq req;
   req.set_msgtype(protocol::ssmsg::SSMsgType::EN_CHAT);
@@ -36,9 +36,13 @@ chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq &ssChatMsg,
   if (chatRsp.issuccess()) {
     std::cout << "Push message success" << std::endl;
     logger->info("Push message success");
+    auto sendPlayerName = ssChatMsg.sendplayer().playername();
+    auto receivePlayerName = ssChatMsg.receiveplayer().playername();
+    auto sendPlayerId = redis_ptr->get("username:" + sendPlayerName);
+    auto receivePlayerId = redis_ptr->get("username:" + receivePlayerName);
     auto curAck = redis_ptr->get(
-        "chat:ack:" + std::to_string(ssChatMsg.sendplayer().playerid()) + ":" +
-        std::to_string(ssChatMsg.receiveplayer().playerid()));
+        "chat:ack:" + *sendPlayerId + ":" +
+        *receivePlayerId);
     int curAckVal = 0;
     if (curAck) {
       curAckVal = std::stoi(curAck.value());

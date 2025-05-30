@@ -1,0 +1,18 @@
+syntax = "proto3";
+package protocol.whispersvr;
+
+import "common/player.proto";
+
+enum SSChannelControlType {
+    EN_JOIN = 0;
+    EN_LEAVE = 1;
+    EN_CREATE = 2;
+    EN_DESTROY = 3;
+}
+
+message SSChannelMsgReq {
+    SSChannelMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    string channelId = 3; 
+    repeated protocol.common.chatMessage chatMessage = 4;
+}
