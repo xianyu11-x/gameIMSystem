@@ -78,22 +78,14 @@ add_subdirectory(third_party/coroio)
 
 message(STATUS "=== Third-party Dependencies Built ===")
 
-# =============================================================================
-# 设置库路径变量
-# =============================================================================
 set(HIREDIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/hiredis")
 set(REDIS_PLUS_PLUS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/redis-plus-plus")
 
-# 确保目录在构建时存在
 file(MAKE_DIRECTORY "${HIREDIS_ROOT_DIR}/include")
 file(MAKE_DIRECTORY "${REDIS_PLUS_PLUS_ROOT_DIR}/include")
 
-# =============================================================================
-# 创建导入目标
-# =============================================================================
 message(STATUS "Creating imported targets...")
 
-# 创建 hiredis 导入目标
 add_library(hiredis::hiredis STATIC IMPORTED)
 set_target_properties(hiredis::hiredis PROPERTIES
     IMPORTED_LOCATION "${HIREDIS_ROOT_DIR}/lib/libhiredisd.a"
@@ -101,7 +93,6 @@ set_target_properties(hiredis::hiredis PROPERTIES
 )
 add_dependencies(hiredis::hiredis hiredis_external)
 
-# 创建 redis++ 导入目标
 add_library(redis++::redis++ STATIC IMPORTED)
 set_target_properties(redis++::redis++ PROPERTIES
     IMPORTED_LOCATION "${REDIS_PLUS_PLUS_ROOT_DIR}/lib/libredis++.a"
@@ -122,7 +113,7 @@ endif()
 message(STATUS "All targets created successfully")
 
 # =============================================================================
-# Project source code
+# 项目构建
 # =============================================================================
 add_subdirectory(src)
 

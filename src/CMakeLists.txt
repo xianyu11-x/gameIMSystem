@@ -61,13 +61,3 @@ add_subdirectory(chatsvr)
 add_subdirectory(gatesvr)
 # add_subdirectory(whispersvr)
 add_subdirectory(loginsvr)
-
-
-# set(SRC main.cpp
-#         util/server.cpp)
-# add_executable(test ${SRC})
-# target_link_libraries(test coroio)
-
-
-# add_executable(client test/client.cpp util/baseMsgHelper.cpp ${MSG_SRCS})
-# target_link_libraries(client coroio ${PROTOBUF_LIBRARIES})
