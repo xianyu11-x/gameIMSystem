@@ -14,4 +14,13 @@ set(SRC
     )
 add_executable(gatesvr ${SRC})
 add_dependencies(gatesvr generate_protocol)
-target_link_libraries(gatesvr coroio ${PROTOBUF_LIBRARIES} spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
+
+# =============================================================================
+# Link libraries using modern CMake targets
+# =============================================================================
+target_link_libraries(gatesvr 
+    PRIVATE
+        coroio
+        ${PROTOBUF_LIBRARIES}
+        spdlog::spdlog
+)
