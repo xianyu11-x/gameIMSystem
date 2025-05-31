@@ -30,7 +30,8 @@ foreach(PROTO ${MSG_PROTOS})
       OUTPUT "${PROTO_CC}"
              "${PROTO_H}"
       COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
-      ARGS --cpp_out  ${PROTO_META_BASE_DIR}
+      ARGS --experimental_allow_proto3_optional
+        --cpp_out  ${PROTO_META_BASE_DIR}
         --python_out  ${PROTO_META_BASE_DIR}
         -I ${CMAKE_SOURCE_DIR}/protocol
         ${PROTO}

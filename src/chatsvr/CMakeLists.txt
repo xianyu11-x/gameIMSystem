@@ -20,5 +20,5 @@ target_link_libraries(chatsvr
         coroio
         ${PROTOBUF_LIBRARIES}
         spdlog::spdlog
-        redis++::redis++_static
+        redis++::redis++
 )

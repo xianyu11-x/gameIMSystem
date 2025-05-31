@@ -34,7 +34,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 # 第三方库构建
 # =============================================================================
 message(STATUS "=== Building Third-party Dependencies ===")
-
+include(ExternalProject)
 
 message(STATUS "Building spdlog...")
 set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build shared library" FORCE)
@@ -43,33 +43,33 @@ set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "Build tests" FORCE)
 set(SPDLOG_INSTALL OFF CACHE BOOL "Generate install target" FORCE)
 add_subdirectory(third_party/spdlog)
 
-
 message(STATUS "Building hiredis...")
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-set(ENABLE_SSL OFF CACHE BOOL "Enable SSL support" FORCE)
-set(DISABLE_TESTS ON CACHE BOOL "Disable tests" FORCE)
-set(ENABLE_EXAMPLES OFF CACHE BOOL "Enable examples" FORCE)
-add_subdirectory(third_party/hiredis)
-
+ExternalProject_Add(hiredis_external
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hiredis
+    CMAKE_ARGS 
+        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/lib/hiredis
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DBUILD_SHARED_LIBS=OFF
+        -DENABLE_SSL=OFF
+        -DDISABLE_TESTS=ON
+    INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/hiredis
+)
 
 message(STATUS "Building redis-plus-plus...")
-set(REDIS_PLUS_PLUS_BUILD_STATIC ON CACHE BOOL "Build static library" FORCE)
-set(REDIS_PLUS_PLUS_BUILD_SHARED OFF CACHE BOOL "Build shared library" FORCE)
-set(REDIS_PLUS_PLUS_BUILD_TEST OFF CACHE BOOL "Build tests" FORCE)
-set(REDIS_PLUS_PLUS_USE_TLS OFF CACHE BOOL "Build with TLS support" FORCE)
-set(REDIS_PLUS_PLUS_CXX_STANDARD 17 CACHE STRING "CXX standard" FORCE)
-
-
-# Create a hiredis config to help redis-plus-plus find hiredis
-# Set variables that redis-plus-plus CMakeLists.txt looks for
-set(CMAKE_DISABLE_FIND_PACKAGE_hiredis TRUE)
-set(hiredis_FOUND TRUE CACHE BOOL "Force use custom hiredis settings" FORCE)
-set(hiredis_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/third_party CACHE STRING "hiredis include dirs" FORCE)
-set(HIREDIS_HEADER "${CMAKE_SOURCE_DIR}/third_party" CACHE PATH "hiredis header path" FORCE)
-set(HIREDIS_LIB hiredis CACHE STRING "hiredis library target" FORCE)
-set(REDIS_PLUS_PLUS_HIREDIS_LIBS "hiredis::hiredis" CACHE STRING "hiredis libs" FORCE)
-set(REDIS_PLUS_PLUS_HIREDIS_LIBS_STATIC "hiredis::hiredis" CACHE STRING "hiredis static libs" FORCE)
-add_subdirectory(third_party/redis-plus-plus)
+ExternalProject_Add(redis++_external
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/redis-plus-plus
+    CMAKE_ARGS 
+        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/lib/redis-plus-plus
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCMAKE_PREFIX_PATH=${CMAKE_CURRENT_SOURCE_DIR}/lib/hiredis
+        -DREDIS_PLUS_PLUS_BUILD_STATIC=ON
+        -DREDIS_PLUS_PLUS_BUILD_SHARED=OFF
+        -DREDIS_PLUS_PLUS_BUILD_TEST=OFF
+        -DREDIS_PLUS_PLUS_USE_TLS=OFF
+        -DREDIS_PLUS_PLUS_CXX_STANDARD=20
+    INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/redis-plus-plus
+    DEPENDS hiredis_external
+)
 
 
 message(STATUS "Building coroio...")
@@ -78,22 +78,48 @@ add_subdirectory(third_party/coroio)
 
 message(STATUS "=== Third-party Dependencies Built ===")
 
+# =============================================================================
+# 设置库路径变量
+# =============================================================================
+set(HIREDIS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/hiredis")
+set(REDIS_PLUS_PLUS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/redis-plus-plus")
 
+# 确保目录在构建时存在
+file(MAKE_DIRECTORY "${HIREDIS_ROOT_DIR}/include")
+file(MAKE_DIRECTORY "${REDIS_PLUS_PLUS_ROOT_DIR}/include")
+
+# =============================================================================
+# 创建导入目标
+# =============================================================================
+message(STATUS "Creating imported targets...")
+
+# 创建 hiredis 导入目标
+add_library(hiredis::hiredis STATIC IMPORTED)
+set_target_properties(hiredis::hiredis PROPERTIES
+    IMPORTED_LOCATION "${HIREDIS_ROOT_DIR}/lib/libhiredisd.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${HIREDIS_ROOT_DIR}/include"
+)
+add_dependencies(hiredis::hiredis hiredis_external)
+
+# 创建 redis++ 导入目标
+add_library(redis++::redis++ STATIC IMPORTED)
+set_target_properties(redis++::redis++ PROPERTIES
+    IMPORTED_LOCATION "${REDIS_PLUS_PLUS_ROOT_DIR}/lib/libredis++.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${REDIS_PLUS_PLUS_ROOT_DIR}/include"
+    INTERFACE_LINK_LIBRARIES "hiredis::hiredis"
+)
+add_dependencies(redis++::redis++ redis++_external)
+
+# 验证目标是否存在
 if(NOT TARGET spdlog::spdlog)
     message(FATAL_ERROR "spdlog target not found")
-endif()
-
-if(NOT TARGET hiredis::hiredis)
-    message(FATAL_ERROR "hiredis target not found")  
-endif()
-
-if(NOT TARGET redis++::redis++_static)
-    message(FATAL_ERROR "redis++ target not found")
 endif()
 
 if(NOT TARGET coroio)
     message(FATAL_ERROR "coroio target not found")
 endif()
+
+message(STATUS "All targets created successfully")
 
 # =============================================================================
 # Project source code
