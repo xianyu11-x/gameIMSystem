@@ -1,5 +1,5 @@
 syntax = "proto3";
-package protocol.sswhispermsg;
+package protocol.sschannelmsg;
 
 import "common/player.proto";
 import "common/chatMessage.proto";

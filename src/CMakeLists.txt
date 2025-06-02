@@ -59,5 +59,5 @@ include_directories(${CMAKE_BINARY_DIR}/protocol)
 #server构建
 add_subdirectory(chatsvr)
 add_subdirectory(gatesvr)
-# add_subdirectory(whispersvr)
+add_subdirectory(channelsvr)
 add_subdirectory(loginsvr)
