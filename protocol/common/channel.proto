@@ -2,7 +2,7 @@ syntax = "proto3";
 package protocol.common;
 import "common/player.proto";
 
-message channel{
+message channelInfo{
     string channelId = 1;
     string channelName = 2; 
     string ownerId = 3; 

@@ -17,6 +17,7 @@ message SSMsgReq{
     oneof body{
         protocol.ssloginmsg.SSLoginMsgReq loginReq = 2;
         protocol.sschatmsg.SSChatMsgReq chatReq = 3;
+        protocol.sswhispermsg.SSChannelMsgReq channelReq = 4;
 
     }
 }
@@ -26,5 +27,6 @@ message SSMsgRsp{
     oneof body{
         protocol.ssloginmsg.SSLoginMsgRsp loginRsp = 2;
         protocol.sschatmsg.SSChatMsgRsp chatRsp = 3;
+        protocol.sswhispermsg.SSChannelMsgRsp channelRsp = 4;
     }
 }
