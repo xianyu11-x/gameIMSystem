@@ -3,8 +3,8 @@ package protocol.common;
 import "common/player.proto";
 
 message channelInfo{
-    string channelId = 1;
+    int32 channelId = 1;
     string channelName = 2; 
-    string ownerId = 3; 
+    int32 ownerId = 3; 
     repeated protocol.common.PlayerInfo members = 4;
 }

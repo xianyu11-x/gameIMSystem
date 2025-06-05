@@ -5,7 +5,7 @@
 #include "coroio/epoll.hpp"
 #include "spdlog/logger.h"
 #include "util/server.h"
-#include "whispersvr/SSChannelMsg.pb.h"
+#include "channelsvr/SSChannelMsg.pb.h"
 #include <functional>
 #include <string>
 #include <sw/redis++/redis++.h>

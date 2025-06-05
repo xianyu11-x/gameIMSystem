@@ -17,7 +17,7 @@ channelServer::channelServer(NNet::TEPoll& poller, std::string address,
     : baseServer(poller, address, bufferSize)
 {
     logger = spdlog::rotating_logger_mt<spdlog::async_factory>(
-        "whisperSvrLogger", "logs/whisperSvrLogger.txt", 1048576 * 5, 2);
+        "channelSvrLogger", "logs/channelSvrLogger.txt", 1048576 * 5, 2);
     logger->set_level(spdlog::level::debug);
     logger->flush_on(spdlog::level::debug);
     redis_ptr = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379");
@@ -28,10 +28,10 @@ void channelServer::registerHandler()
 {
     // 注册处理函数
     using namespace std::placeholders;
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_CREATE] = std::bind(&channelServer::ssCreateChannel, this, _1, _2, _3);
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_DESTROY] = std::bind(&channelServer::ssDestroyChannel, this, _1, _2, _3);
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_JOIN] = std::bind(&channelServer::ssJoinChannel, this, _1, _2, _3);
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_LEAVE] = std::bind(&channelServer::ssLeaveChannel, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_CREATE] = std::bind(&channelServer::ssCreateChannel, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_DESTROY] = std::bind(&channelServer::ssDestroyChannel, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_JOIN] = std::bind(&channelServer::ssJoinChannel, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_LEAVE] = std::bind(&channelServer::ssLeaveChannel, this, _1, _2, _3);
     // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_SEND] = std::bind(&channelServer::ssSendChannelMsg, this, _1, _2, _3);
     // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_HISTORY] = std::bind(&channelServer::ssPullChannelHistory, this, _1, _2, _3);
     // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_PULL] = std::bind(&channelServer::ssPullChannelList, this, _1, _2, _3);
