@@ -4,8 +4,9 @@
 TFuture<void> channelServer::ssPullChannelList(const int socketFd,
                                                const std::string &message,
                                                std::string &response) {
-  protocol::sschannelmsg::SSChannelMsgReq req;
-  req.ParseFromString(message);
+  protocol::ssmsg::SSMsgReq ssMsgReq;
+  ssMsgReq.ParseFromString(message);
+  auto req = ssMsgReq.channelreq();
   protocol::sschannelmsg::SSChannelMsgRsp rsp;
   rsp.set_msgtype(req.msgtype());
 
@@ -23,7 +24,7 @@ TFuture<void> channelServer::ssPullChannelList(const int socketFd,
   // 获取频道列表
   std::vector<std::string> channelList;
   redis_ptr->smembers("channelSet", std::back_inserter(channelList));
-
+  logger->info("Pull channel list success, player name: {}", sendPlayerName);
   for (const auto &channelId : channelList) {
     auto channelInfoStr = redis_ptr->get("channel:" + channelId);
     if (channelInfoStr) {
@@ -34,6 +35,11 @@ TFuture<void> channelServer::ssPullChannelList(const int socketFd,
   }
 
   rsp.set_issuccess(true);
-  response = rsp.SerializeAsString();
+  rsp.set_allocated_sendplayer(new protocol::common::PlayerInfo(sendPlayer));
+  protocol::ssmsg::SSMsgRsp ssMsgRsp;
+  ssMsgRsp.set_msgtype(ssMsgReq.msgtype());
+  ssMsgRsp.set_allocated_channelrsp(
+      new protocol::sschannelmsg::SSChannelMsgRsp(rsp));
+  response = ssMsgRsp.SerializeAsString();
   co_return;
 }

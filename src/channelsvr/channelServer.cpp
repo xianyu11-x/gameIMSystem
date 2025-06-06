@@ -46,7 +46,7 @@ TFuture<void> channelServer::channelHandler(const int socketFd,
     req.ParseFromString(message);
     std::string ssMsgRspStr;
     co_await channelHandlerMap[req.channelreq().msgtype()](
-        socketFd, req.channelreq().SerializeAsString(), ssMsgRspStr);
+        socketFd, req.SerializeAsString(), ssMsgRspStr);
     response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
         protocol::common::MsgSender::EN_MSG_SENDER_CHANNELSVR,
         protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);

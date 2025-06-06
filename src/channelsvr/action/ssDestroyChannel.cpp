@@ -5,8 +5,9 @@
 TFuture<void> channelServer::ssDestroyChannel(const int socketFd,
                                               const std::string &message,
                                               std::string &response) {
-  protocol::sschannelmsg::SSChannelMsgReq req;
-  req.ParseFromString(message);
+  protocol::ssmsg::SSMsgReq ssMsgReq;
+  ssMsgReq.ParseFromString(message);
+  auto req = ssMsgReq.channelreq();
   protocol::sschannelmsg::SSChannelMsgRsp rsp;
   rsp.set_msgtype(req.msgtype());
 
@@ -67,6 +68,10 @@ TFuture<void> channelServer::ssDestroyChannel(const int socketFd,
   // 返回响应
   rsp.set_issuccess(true);
   rsp.set_allocated_sendplayer(new protocol::common::PlayerInfo(sendPlayer));
-  response = rsp.SerializeAsString();
+  protocol::ssmsg::SSMsgRsp ssMsgRsp;
+  ssMsgRsp.set_msgtype(ssMsgReq.msgtype());
+  ssMsgRsp.set_allocated_channelrsp(
+      new protocol::sschannelmsg::SSChannelMsgRsp(rsp));
+  response = ssMsgRsp.SerializeAsString();
   co_return;
 }

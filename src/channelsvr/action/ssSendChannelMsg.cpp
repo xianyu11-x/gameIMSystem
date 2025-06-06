@@ -2,13 +2,16 @@
 #include "common/BaseMsg.pb.h"
 #include "coroio/corochain.hpp"
 #include "util/uuid.hpp"
+#include <iterator>
 #include <unordered_set>
+#include <vector>
 
 TFuture<void> channelServer::ssSendChannelMsg(const int socketFd,
                                               const std::string &message,
                                               std::string &response) {
-  protocol::sschannelmsg::SSChannelMsgReq req;
-  req.ParseFromString(message);
+  protocol::ssmsg::SSMsgReq ssMsgReq;
+  ssMsgReq.ParseFromString(message);
+  auto req = ssMsgReq.channelreq();
   protocol::sschannelmsg::SSChannelMsgRsp rsp;
   rsp.set_msgtype(req.msgtype());
 
@@ -65,18 +68,25 @@ TFuture<void> channelServer::ssSendChannelMsg(const int socketFd,
   }
 
   // 获取广播消息
-  std::unordered_set<std::string> members;
+  std::vector<std::string> membersList;
+  
   std::string onlineSetKey = "onlineSet";
   std::string channelMemberKey = "channel:member:" + channelId.value();
-  redis_ptr->sinter({onlineSetKey, channelMemberKey}, members.begin());
-  members.erase(sendPlayerId.value());
-  ssPushChannelMsg(members, channelInfo, sendPlayer, chatMessageList,
+  redis_ptr->sinter({onlineSetKey, channelMemberKey}, std::back_inserter(membersList));
+  std::unordered_set<std::string> membersSet(membersList.begin(),
+                                             membersList.end());
+  membersSet.erase(sendPlayerId.value());
+  ssPushChannelMsg(membersSet, channelInfo, sendPlayer, chatMessageList,
                    protocol::common::MsgSender::EN_MSG_SENDER_CHANNELSVR);
 
   // 返回响应
   rsp.set_issuccess(true);
   rsp.set_allocated_sendplayer(new protocol::common::PlayerInfo(sendPlayer));
-  response = rsp.SerializeAsString();
+  protocol::ssmsg::SSMsgRsp ssMsgRsp;
+  ssMsgRsp.set_msgtype(ssMsgReq.msgtype());
+  ssMsgRsp.set_allocated_channelrsp(
+      new protocol::sschannelmsg::SSChannelMsgRsp(rsp));
+  response = ssMsgRsp.SerializeAsString();
   logger->info(
       "Send channel message success, channel name: {}, send player: {}",
       channelName, sendPlayerName);

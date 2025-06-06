@@ -3,10 +3,11 @@
 #include "coroio/corochain.hpp"
 
 TFuture<void> channelServer::ssLeaveChannel(const int socketFd,
-                                              const std::string &message,
-                                              std::string &response) {
-  protocol::sschannelmsg::SSChannelMsgReq req;
-  req.ParseFromString(message);
+                                            const std::string &message,
+                                            std::string &response) {
+  protocol::ssmsg::SSMsgReq ssMsgReq;
+  ssMsgReq.ParseFromString(message);
+  auto req = ssMsgReq.channelreq();
   protocol::sschannelmsg::SSChannelMsgRsp rsp;
   rsp.set_msgtype(req.msgtype());
 
@@ -34,12 +35,16 @@ TFuture<void> channelServer::ssLeaveChannel(const int socketFd,
 
   // 离开频道
   redis_ptr->srem("channel:member:" + channelId.value(), sendPlayerId.value());
-  
+
   logger->info("Player {} left channel {}", sendPlayerName, channelName);
 
   // 返回响应
   rsp.set_issuccess(true);
   rsp.set_allocated_sendplayer(new protocol::common::PlayerInfo(sendPlayer));
-  response = rsp.SerializeAsString();
+  protocol::ssmsg::SSMsgRsp ssMsgRsp;
+  ssMsgRsp.set_msgtype(ssMsgReq.msgtype());
+  ssMsgRsp.set_allocated_channelrsp(
+      new protocol::sschannelmsg::SSChannelMsgRsp(rsp));
+  response = ssMsgRsp.SerializeAsString();
   co_return;
 }
