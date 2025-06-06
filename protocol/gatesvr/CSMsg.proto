@@ -1,6 +1,7 @@
 syntax = "proto3";
 import "common/player.proto";
 import "common/chatMessage.proto";
+import "common/channel.proto";
 package protocol.csmsg;
 
 enum CSMsgType{
@@ -8,7 +9,7 @@ enum CSMsgType{
     EN_HEARTBEAT = 1;
     EN_LOGIN = 2;
     EN_CHAT = 3;
-    EN_WHISPER = 4;
+    EN_CHANNEL = 4;
 }
 
 message CSMsgReq{
@@ -16,6 +17,7 @@ message CSMsgReq{
     oneof body{
         CSLoginMsgReq loginReq = 2;
         CSChatMsgReq chatReq = 3;
+        CSChannelMsgReq channelReq = 4;
     }
 }
 
@@ -63,11 +65,39 @@ message CSChatMsgRsp{
 }
 
 
+enum CSChannelMsgType {
+    EN_CHANNELMSG_SEND = 0;
+    EN_CHANNELMSG_RECEIVE = 1;
+    EN_CHANNELMSG_HISTORY = 2;    
+    EN_JOIN = 3;
+    EN_LEAVE = 4;
+    EN_CREATE = 5;
+    EN_DESTROY = 6;
+    EN_PULL = 7;
+}
+
+message CSChannelMsgReq {
+    CSChannelMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    protocol.common.channelInfo channelInfo = 3; 
+    repeated protocol.common.chatMessage chatMessage = 4;
+}
+
+message CSChannelMsgRsp {
+    CSChannelMsgType msgType = 1;
+    protocol.common.PlayerInfo sendPlayer = 2;
+    repeated protocol.common.channelInfo channelInfo = 3; 
+    repeated protocol.common.chatMessage chatMessage = 4;
+    bool isSuccess = 5;
+    optional string errMsg = 6;
+}
+
 message CSMsgRsp{
     CSMsgType msgType = 1;
     oneof body{
         CSLoginMsgRsp loginRsp = 2;
         CSChatMsgRsp chatRsp = 3;
+        CSChannelMsgRsp channelRsp = 4;
     }
 }
 
