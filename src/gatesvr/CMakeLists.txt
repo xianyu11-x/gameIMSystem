@@ -9,6 +9,7 @@ set(SRC
     ../loginsvr/api/sendLoginMsg.cpp
     ../loginsvr/api/sendLogoutMsg.cpp
     ../chatsvr/api/sendChatMsg.cpp
+    ../channelsvr/api/sendChannelMsg.cpp
     ${SVR_ACTION}
     ${MSG_SRCS}
     )

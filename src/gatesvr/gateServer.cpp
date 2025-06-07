@@ -2,6 +2,7 @@
 #include "chatsvr/SSChatMsg.pb.h"
 #include "common/BaseMsg.pb.h"
 #include "common/SSMsg.pb.h"
+#include "coroio/corochain.hpp"
 #include "coroio/promises.hpp"
 #include "gatesvr/CSMsg.pb.h"
 #include "loginsvr/api/sendLogoutMsg.h"
@@ -38,10 +39,29 @@ void gateServer::registerHandler() {
       std::bind(&gateServer::csPullHistoryChatMsg, this, _1, _2, _3);
   csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_CHAT] =
       std::bind(&gateServer::chatMsgHandler, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_CREATE] =
+      std::bind(&gateServer::csCreateChannel, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_DESTROY] =
+      std::bind(&gateServer::csDestroyChannel, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_JOIN] =
+      std::bind(&gateServer::csJoinChannel, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_LEAVE] =
+      std::bind(&gateServer::csLeaveChannel, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_CHANNELMSG_SEND] =
+      std::bind(&gateServer::csSendChannelMsg, this, _1, _2, _3);
+  csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_PULL] =
+      std::bind(&gateServer::csPullChannelList, this, _1, _2, _3);
+  csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_CHANNEL] =
+      std::bind(&gateServer::channelMsgHandler, this, _1, _2, _3);
   ssChatMsgHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_RECEIVE] =
       std::bind(&gateServer::ssPushChatMsg, this, _1, _2, _3);
   ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHAT] =
       std::bind(&gateServer::ssChatMsgHandler, this, _1, _2, _3);
+  ssChannelMsgHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_RECEIVE] =
+      std::bind(&gateServer::ssPushChannelMsg, this, _1, _2, _3);
+    ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHANNEL] =
+      std::bind(&gateServer::ssChannelMsgHandler, this, _1, _2, _3);
+
 }
 
 TFuture<void> gateServer::loginMsgHandler(const int socketFd,
@@ -72,6 +92,20 @@ TFuture<void> gateServer::chatMsgHandler(const int socketFd,
   co_return;
 }
 
+TFuture<void> gateServer::channelMsgHandler(const int socketFd,
+                                         const std::string &message,
+                                         std::string &response) {
+  protocol::csmsg::CSMsgReq req;
+  req.ParseFromString(message);
+  std::string csMsgRspStr;
+  co_await csChannelHandlerMap[req.channelreq().msgtype()](
+      socketFd, req.SerializeAsString(), csMsgRspStr);
+  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                           protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);
+  co_return;
+}
+
 TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,
                                            const std::string &message,
                                            std::string &response) {
@@ -79,6 +113,20 @@ TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,
   req.ParseFromString(message);
   std::string ssMsgRspStr;
   co_await ssChatMsgHandlerMap[req.chatreq().msgtype()](
+      socketFd, req.SerializeAsString(), ssMsgRspStr);
+  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                           protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+  co_return;
+}
+
+TFuture<void> gateServer::ssChannelMsgHandler(const int socketFd,
+                                           const std::string &message,
+                                           std::string &response) {
+  protocol::ssmsg::SSMsgReq req;
+  req.ParseFromString(message);
+  std::string ssMsgRspStr;
+  co_await ssChannelMsgHandlerMap[req.channelreq().msgtype()](
       socketFd, req.SerializeAsString(), ssMsgRspStr);
   response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                            protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,

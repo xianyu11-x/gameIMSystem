@@ -3,7 +3,7 @@
 int main(){
     NNet::TLoop<NNet::TEPoll> loop;
     std::cout<<"start channel server"<<std::endl;
-    channelServer server(loop.Poller(),"127.0.0.1:10002", 128);
+    channelServer server(loop.Poller(),"127.0.0.1:10003", 128);
     spdlog::get("channelSvrLogger")->info("Channel server started");
     server.start();
     loop.Loop();
