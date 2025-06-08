@@ -39,7 +39,7 @@ class GameClient:
         
         # 定义命令补全器
         self.command_completer = WordCompleter([
-            '/login', '/logout', '/chat', '/help', '/quit' # Removed /whisper as it's not fully implemented based on current proto review
+            '/login', '/logout', '/chat', '/help', '/quit'
         ])
 
     def connect(self):
@@ -235,6 +235,28 @@ class GameClient:
         )
         return base_msg.SerializeToString()
 
+    def create_chat_history_request(self):
+        """创建拉取聊天历史消息请求"""
+        cs_chat_req_payload = CSMsg_pb2.CSChatMsgReq()
+        cs_chat_req_payload.msgType = CSMsg_pb2.CSChatMsgType.EN_HISTORY
+
+        # Populate sender info
+        cs_chat_req_payload.sendPlayer.playerId = self.player_id or 0
+        cs_chat_req_payload.sendPlayer.playerName = self.player_name or ""
+        if self.player_token:
+            cs_chat_req_payload.sendPlayer.playerToken = self.player_token
+
+        cs_msg_req = CSMsg_pb2.CSMsgReq()
+        cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_CHAT
+        cs_msg_req.chatReq.CopyFrom(cs_chat_req_payload)
+
+        base_msg = self.create_base_message(
+            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
+            cs_msg_req.SerializeToString(),
+            BaseMsg_pb2.MsgBodyType.EN_REQ
+        )
+        return base_msg.SerializeToString()
+
     def send_chat_message(self, message_text, recipient_name=None):
         if not self.connected:
             print("未连接到服务器，无法发送聊天消息。")
@@ -251,6 +273,22 @@ class GameClient:
                 return True
             else:
                 print("发送聊天消息失败。")
+                return False
+        return False
+
+    def fetch_chat_history(self):
+        """拉取聊天历史消息 - 仅在登录时自动调用"""
+        if not self.connected:
+            return False
+        if not self.player_name:
+            return False
+
+        history_msg_bytes = self.create_chat_history_request()
+        if history_msg_bytes:
+            if self.send_message(history_msg_bytes):
+                return True
+            else:
+                print("拉取历史消息失败。")
                 return False
         return False
 
@@ -301,24 +339,50 @@ class GameClient:
                                 self.player_id = login_rsp.info.playerId
                                 self.player_name = login_rsp.info.playerName
                                 self.player_token = login_rsp.info.playerToken
-                                print(f"\\n登录成功! 欢迎 {self.player_name}! (ID: {self.player_id})\\n> ", end='', flush=True)
+                                print(f"\n登录成功! 欢迎 {self.player_name}! (ID: {self.player_id})")
+                                print("正在为您拉取历史消息...")
+                                # 登录成功后自动拉取历史消息
+                                threading.Timer(0.5, self.fetch_chat_history).start()
+                                print("> ", end='', flush=True)
                             else: # Successful logout confirmation
-                                print(f"\\n操作成功 (如登出)。\\n> ", end='', flush=True)
+                                print(f"\n操作成功 (如登出)。\n> ", end='', flush=True)
                         else:
                             # errMsg 是可选字段，所以可以用 HasField
                             err_msg = login_rsp.errMsg if login_rsp.HasField("errMsg") else "未知错误"
-                            print(f"\\n操作失败: {err_msg}\\n> ", end='', flush=True)
+                            print(f"\n操作失败: {err_msg}\n> ", end='', flush=True)
                     
                     elif cs_msg_rsp.msgType == CSMsg_pb2.CSMsgType.EN_CHAT:
                         # chatRsp 是消息类型字段，可以用 HasField
                         if cs_msg_rsp.HasField('chatRsp'):
                             chat_ack_rsp = cs_msg_rsp.chatRsp
-                            status_msg = "成功" if chat_ack_rsp.isSuccess else "失败"
-                            # errMsg 是可选字段，所以可以用 HasField
-                            err_detail = f": {chat_ack_rsp.errMsg}" if chat_ack_rsp.HasField("errMsg") and chat_ack_rsp.errMsg else ""
-                            print(f"\\n消息发送确认: {status_msg}{err_detail}\\n> ", end='', flush=True)
+                            
+                            # 处理历史消息响应
+                            if chat_ack_rsp.msgType == CSMsg_pb2.CSChatMsgType.EN_HISTORY:
+                                if chat_ack_rsp.isSuccess:
+                                    if chat_ack_rsp.chatMessage:
+                                        print(f"\n========== 历史消息 ==========")
+                                        for chat_msg_item in chat_ack_rsp.chatMessage:
+                                            sender_name = chat_msg_item.sendPlayer.playerName if chat_msg_item.sendPlayer.playerName else "未知用户"
+                                            message_text = chat_msg_item.msg
+                                            timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(chat_msg_item.time)) if chat_msg_item.time else ""
+                                            if timestamp:
+                                                print(f"[{timestamp}] {sender_name}: {message_text}")
+                                            else:
+                                                print(f"[{sender_name}]: {message_text}")
+                                        print(f"========== 历史消息结束 ==========")
+                                    else:
+                                        print("\n暂无历史消息")
+                                else:
+                                    err_detail = f": {chat_ack_rsp.errMsg}" if chat_ack_rsp.HasField("errMsg") and chat_ack_rsp.errMsg else ""
+                                    print(f"\n拉取历史消息失败{err_detail}")
+                                print("> ", end='', flush=True)
+                            else:
+                                # 处理普通聊天消息发送确认
+                                status_msg = "成功" if chat_ack_rsp.isSuccess else "失败"
+                                err_detail = f": {chat_ack_rsp.errMsg}" if chat_ack_rsp.HasField("errMsg") and chat_ack_rsp.errMsg else ""
+                                print(f"\n消息发送确认: {status_msg}{err_detail}\n> ", end='', flush=True)
                         else:
-                            print(f"\\n收到聊天响应但无chatRsp内容。\\n> ", end='', flush=True)
+                            print(f"\n收到聊天响应但无chatRsp内容。\n> ", end='', flush=True)
                     # Add other EN_RSP handlers here if needed
 
                 # --- Handling Server REQ messages (including notifications like chat messages from other users) ---
@@ -339,8 +403,14 @@ class GameClient:
                             
                             for chat_msg_item in chat_req_payload.chatMessage:
                                 message_text = chat_msg_item.msg
-                                # timestamp = chat_msg_item.time # Available if needed
-                                print(f"\\n[{sender_name}]: {message_text}\\n> ", end='', flush=True)
+                                timestamp = time.strftime('%H:%M:%S', time.localtime(chat_msg_item.time)) if chat_msg_item.time else ""
+                                
+                                # 改进消息显示格式
+                                if timestamp:
+                                    print(f"\n[{timestamp}] {sender_name}: {message_text}")
+                                else:
+                                    print(f"\n[{sender_name}]: {message_text}")
+                                print("> ", end='', flush=True)
                             
                             # 发送接收确认响应回服务器
                             ack_msg_bytes = self.create_chat_receive_acknowledgment(cs_msg_req)
@@ -349,19 +419,19 @@ class GameClient:
                                 # print(f"\\n已发送消息接收确认到服务器\\n> ", end='', flush=True)
                                 pass
                             else:
-                                print(f"\\n发送消息接收确认失败\\n> ", end='', flush=True)
+                                print(f"\n发送消息接收确认失败\n> ", end='', flush=True)
                     # 其他REQ类型的处理可以在这里添加（如果需要）
                                 
                 # 保留旧的NTF处理逻辑，以防协议变更或有其他类型的通知
                 elif msg_info.msgBodyType == BaseMsg_pb2.MsgBodyType.EN_NTF:
-                    print(f"\\n收到EN_NTF类型消息，但协议中未定义此类通知处理。\\n> ", end='', flush=True)
+                    print(f"\n收到EN_NTF类型消息，但协议中未定义此类通知处理。\n> ", end='', flush=True)
                 
                 else:
-                    print(f"\\n收到未处理的CS消息体类型: {BaseMsg_pb2.MsgBodyType.Name(msg_info.msgBodyType)}\\n> ", end='', flush=True)
+                    print(f"\n收到未处理的CS消息体类型: {BaseMsg_pb2.MsgBodyType.Name(msg_info.msgBodyType)}\n> ", end='', flush=True)
 
             # Add more handlers for other base_msg.msgInfo.msgType if needed
             else:
-                print(f"\\n收到未处理的基础消息类型: {BaseMsg_pb2.MsgType.Name(msg_info.msgType)}\\n> ", end='', flush=True)
+                print(f"\n收到未处理的基础消息类型: {BaseMsg_pb2.MsgType.Name(msg_info.msgType)}\n> ", end='', flush=True)
 
             return True
             
@@ -411,7 +481,7 @@ class GameClient:
             return False
     
     def print_help(self):
-        print("\\n可用命令:")
+        print("\n可用命令:")
         print("  /login <用户名>          - 以指定用户名登录")
         print("  /logout                 - 登出当前用户")
         print("  /chat <消息>            - 发送公共聊天消息")
@@ -512,14 +582,14 @@ class GameClient:
                         self.send_chat_message(user_input, None) # None for public chat
                         
                 except KeyboardInterrupt:
-                    print("\\n收到中断信号，正在退出...")
+                    print("\n收到中断信号，正在退出...")
                     if self.player_name:
                         self.logout()
                         time.sleep(0.5)
                     self.running = False
                     break
                 except EOFError:
-                    print("\\n收到EOF，正在退出...")
+                    print("\n收到EOF，正在退出...")
                     if self.player_name:
                         self.logout()
                         time.sleep(0.5)

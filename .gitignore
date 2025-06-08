@@ -5,3 +5,4 @@ src/libtest/
 bin/
 lib/
 src/test/
+*.pyc
