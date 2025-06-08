@@ -35,7 +35,6 @@ chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
   auto chatRsp = rsp.chatrsp();
   if (chatRsp.issuccess()) {
     std::cout << "Push message success" << std::endl;
-    logger->info("Push message success");
     auto sendPlayerName = ssChatMsg.sendplayer().playername();
     auto receivePlayerName = ssChatMsg.receiveplayer().playername();
     auto sendPlayerId = redis_ptr->get("username:" + sendPlayerName);
@@ -49,10 +48,12 @@ chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
     }
     if (!curAck || expectAck > curAckVal) {
       redis_ptr->set(
-          "chat:ack:" + std::to_string(ssChatMsg.sendplayer().playerid()) +
-              ":" + std::to_string(ssChatMsg.receiveplayer().playerid()),
+          "chat:ack:" + *sendPlayerId +
+              ":" + *receivePlayerId,
           std::to_string(expectAck));
     }
+    logger->info("Push message success, send player: {}, receive player: {},msg ack: {}",
+                 sendPlayerName, receivePlayerName,expectAck);
   } else {
     std::cerr << "Push message failed: " << chatRsp.errmsg() << std::endl;
     logger->error("Push message failed: {}", chatRsp.errmsg());

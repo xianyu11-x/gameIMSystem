@@ -1,4 +1,5 @@
 #include "chatServer.h"
+#include "chatsvr/SSChatMsg.pb.h"
 #include "coroio/corochain.hpp"
 #include "spdlog/async.h"
 #include "spdlog/sinks/rotating_file_sink.h"
@@ -18,6 +19,8 @@ chatServer::chatServer(NNet::TEPoll &poller, std::string address,
 void chatServer::registerHandler() {
   // 注册处理函数
   using namespace std::placeholders;
+  ssChatHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_HISTORY] =
+      std::bind(&chatServer::ssPullHistoryChatMsg, this, _1, _2, _3);
   ssChatHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_SEND] =
       std::bind(&chatServer::ssSendChatMsg, this, _1, _2, _3);
   ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHAT] =
