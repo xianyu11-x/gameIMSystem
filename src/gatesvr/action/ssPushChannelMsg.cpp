@@ -53,21 +53,24 @@ TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
       auto memberName = playerIdToPlayerName.find(memberid)->second;
       auto it = activePlayers.find(memberName);
       if (it != activePlayers.end()) {
-        auto playerSocket = it->second;
-        auto pushChannelMsg = [playerSocket, &baseMsg, memberName,
+        auto pushChannelMsg = [ baseMsg,memberid,
                                this]() -> TFuture<ssize_t> {
+          auto coroMemberName = playerIdToPlayerName.find(memberid)->second;
+          auto playerSocket = activePlayers.find(coroMemberName)->second;
+          logger->debug("playerFd {},from {}",activePlayers.find(coroMemberName)->first ,coroMemberName);
           auto baseMsgRsp = co_await sendMsg(playerSocket, baseMsg);
           wakeUpClientCoroutine(playerSocket);
+          logger->debug("receive rsp,from {}", coroMemberName);
           auto baseMsgRspParsed = parseStringToBaseMsg(baseMsgRsp);
           auto csMsgRsp = baseMsgRspParsed.msgbody();
           protocol::csmsg::CSMsgRsp csRsp;
           csRsp.ParseFromString(csMsgRsp);
           if (!csRsp.channelrsp().issuccess()) {
             logger->error("Push channel message to player {} failed: {}",
-                          memberName, csRsp.channelrsp().errmsg());
+                          coroMemberName, csRsp.channelrsp().errmsg());
             co_return -1;
           }
-          logger->info("Push channel message to player {} success", memberName);
+          logger->info("Push channel message to player {} success", coroMemberName);
           co_return 0;
         }();
         futures.push_back(std::move(pushChannelMsg));
