@@ -32,9 +32,9 @@ void channelServer::registerHandler()
     channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_DESTROY] = std::bind(&channelServer::ssDestroyChannel, this, _1, _2, _3);
     channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_JOIN] = std::bind(&channelServer::ssJoinChannel, this, _1, _2, _3);
     channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_LEAVE] = std::bind(&channelServer::ssLeaveChannel, this, _1, _2, _3);
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_SEND] = std::bind(&channelServer::ssSendChannelMsg, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_SEND] = std::bind(&channelServer::ssSendChannelMsg, this, _1, _2, _3);
     // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_HISTORY] = std::bind(&channelServer::ssPullChannelHistory, this, _1, _2, _3);
-    // channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_PULL] = std::bind(&channelServer::ssPullChannelList, this, _1, _2, _3);
+    channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_PULL] = std::bind(&channelServer::ssPullChannelList, this, _1, _2, _3);
     ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHANNEL] = std::bind(&channelServer::channelHandler, this, _1, _2, _3);
 }
 

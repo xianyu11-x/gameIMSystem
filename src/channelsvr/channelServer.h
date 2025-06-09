@@ -40,10 +40,10 @@ private:
                                  std::string &response);
   TFuture<void> channelHandler(const int socketFd, const std::string &message,
                                std::string &response);
-  TVoidTask ssPushChannelMsg(std::unordered_set<std::string> &members,
-                             protocol::common::channelInfo &channelInfo,
-                             protocol::common::PlayerInfo &sendPlayer,
-                             std::vector<protocol::common::chatMessage> &channelChatMessageList,
+  TVoidTask ssPushChannelMsg(std::unordered_set<std::string> members,
+                             protocol::common::channelInfo channelInfo,
+                             protocol::common::PlayerInfo sendPlayer,
+                             std::vector<protocol::common::chatMessage> channelChatMessageList,
                              protocol::common::MsgSender msgSender);
   void registerHandler();
   TFuture<void> handleMessage(NNet::TEPoll::TSocket &socket,

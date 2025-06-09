@@ -99,7 +99,7 @@ TFuture<void> gateServer::channelMsgHandler(const int socketFd,
   req.ParseFromString(message);
   std::string csMsgRspStr;
   co_await csChannelHandlerMap[req.channelreq().msgtype()](
-      socketFd, req.SerializeAsString(), csMsgRspStr);
+      socketFd, req.channelreq().SerializeAsString(), csMsgRspStr);
   response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
                            protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
                            protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);

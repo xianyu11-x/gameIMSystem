@@ -54,7 +54,7 @@ TFuture<void> gateServer::csSendChannelMsg(const int socketFd, const std::string
         logger->info("Send channel message success, player name: {}, channel name: {}, message count: {}",
                      ssChannelMsgRsp.sendplayer().playername(),
                      req.channelinfo().channelname(),
-                     ssChannelMsgRsp.chatmessage_size());
+                     ssChannelMsgReq->chatmessage_size());
     }
     
     response = csMsgRsp.SerializeAsString();

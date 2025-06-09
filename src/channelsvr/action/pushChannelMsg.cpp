@@ -6,10 +6,10 @@
 #include "util/sendMsg.h"
 #include <unordered_set>
 TVoidTask channelServer::ssPushChannelMsg(
-    std::unordered_set<std::string> &members,
-    protocol::common::channelInfo &channelInfo,
-    protocol::common::PlayerInfo &sendPlayer,
-    std::vector<protocol::common::chatMessage> &channelChatMessageList,
+    std::unordered_set<std::string> members,
+    protocol::common::channelInfo channelInfo,
+    protocol::common::PlayerInfo sendPlayer,
+    std::vector<protocol::common::chatMessage> channelChatMessageList,
     protocol::common::MsgSender msgSender) {
   protocol::sschannelmsg::SSChannelMsgReq ssChannelMsg;
   ssChannelMsg.set_msgtype(
@@ -37,7 +37,7 @@ TVoidTask channelServer::ssPushChannelMsg(
 
   auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
-                               ssMsgReq.SerializeAsString());
+                               ssMsgReq.SerializeAsString());                
   std::string address = "127.0.0.1:8888"; // TODO::利用K8s获取目标地址
   auto baseMsgRspStr = co_await sendMsg(serverPoller, address, baseMsg);
   auto baseMsgRsp = parseStringToBaseMsg(baseMsgRspStr);
