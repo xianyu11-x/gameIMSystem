@@ -18,6 +18,7 @@ try:
     from common import BaseMsg_pb2
     from common import player_pb2
     from common import chatMessage_pb2 # Added for chat messages
+    from common import channel_pb2 # Added for channel info
     from gatesvr import CSMsg_pb2
 except ImportError:
     print("错误: 无法导入Protocol Buffers模块")
@@ -39,7 +40,7 @@ class GameClient:
         
         # 定义命令补全器
         self.command_completer = WordCompleter([
-            '/login', '/logout', '/chat', '/help', '/quit'
+            '/login', '/logout', '/chat', '/channel', '/help', '/quit'
         ])
 
     def connect(self):
@@ -316,6 +317,190 @@ class GameClient:
         
         return base_msg.SerializeToString()
 
+    def create_channel_receive_acknowledgment(self, received_msg_req):
+        """创建频道消息接收确认 - Client acknowledging receipt of a channel message"""
+        # 创建频道回复
+        cs_channel_rsp_payload = CSMsg_pb2.CSChannelMsgRsp()
+        cs_channel_rsp_payload.msgType = CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_RECEIVE  # 确认接收到频道消息
+        
+        # 复制发送者信息，这个是我们正在确认其消息的发送者
+        cs_channel_rsp_payload.sendPlayer.CopyFrom(received_msg_req.channelReq.sendPlayer)
+        cs_channel_rsp_payload.isSuccess = True  # 标记成功接收
+        
+        # 创建CS消息响应
+        cs_msg_rsp = CSMsg_pb2.CSMsgRsp()
+        cs_msg_rsp.msgType = CSMsg_pb2.CSMsgType.EN_CHANNEL  # 频道消息类型
+        cs_msg_rsp.channelRsp.CopyFrom(cs_channel_rsp_payload)
+        
+        # 创建基础消息
+        base_msg = self.create_base_message(
+            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,  # CS消息类型
+            cs_msg_rsp.SerializeToString(),
+            BaseMsg_pb2.MsgBodyType.EN_RSP  # 响应类型
+        )
+        
+        return base_msg.SerializeToString()
+
+    # ========== 频道相关方法 ==========
+    def create_channel_request(self, msg_type, channel_name=None, channel_id=None, message_text=None):
+        """创建频道相关请求"""
+        cs_channel_req_payload = CSMsg_pb2.CSChannelMsgReq()
+        cs_channel_req_payload.msgType = msg_type
+
+        # 填充发送者信息
+        cs_channel_req_payload.sendPlayer.playerId = self.player_id or 0
+        cs_channel_req_payload.sendPlayer.playerName = self.player_name or ""
+        if self.player_token:
+            cs_channel_req_payload.sendPlayer.playerToken = self.player_token
+
+        # 填充频道信息
+        if channel_name or channel_id:
+            cs_channel_req_payload.channelInfo.channelName = channel_name or ""
+            if channel_id is not None:
+                cs_channel_req_payload.channelInfo.channelId = channel_id
+
+        # 如果是发送消息，添加消息内容
+        if message_text and msg_type == CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_SEND:
+            chat_msg_content = cs_channel_req_payload.chatMessage.add()
+            chat_msg_content.msg = message_text
+            chat_msg_content.sendPlayer.CopyFrom(cs_channel_req_payload.sendPlayer)
+            chat_msg_content.time = int(time.time())
+
+        cs_msg_req = CSMsg_pb2.CSMsgReq()
+        cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_CHANNEL
+        cs_msg_req.channelReq.CopyFrom(cs_channel_req_payload)
+
+        base_msg = self.create_base_message(
+            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
+            cs_msg_req.SerializeToString(),
+            BaseMsg_pb2.MsgBodyType.EN_REQ
+        )
+        return base_msg.SerializeToString()
+
+    def create_channel(self, channel_name):
+        """创建频道"""
+        if not self.connected:
+            print("未连接到服务器，无法创建频道。")
+            return False
+        if not self.player_name:
+            print("请先登录再创建频道。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(
+            CSMsg_pb2.CSChannelMsgType.EN_CREATE, 
+            channel_name=channel_name
+        )
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送创建频道请求失败。")
+                return False
+        return False
+
+    def destroy_channel(self, channel_name):
+        """销毁频道"""
+        if not self.connected:
+            print("未连接到服务器，无法销毁频道。")
+            return False
+        if not self.player_name:
+            print("请先登录再销毁频道。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(
+            CSMsg_pb2.CSChannelMsgType.EN_DESTROY, 
+            channel_name=channel_name
+        )
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送销毁频道请求失败。")
+                return False
+        return False
+
+    def join_channel(self, channel_name):
+        """加入频道"""
+        if not self.connected:
+            print("未连接到服务器，无法加入频道。")
+            return False
+        if not self.player_name:
+            print("请先登录再加入频道。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(
+            CSMsg_pb2.CSChannelMsgType.EN_JOIN, 
+            channel_name=channel_name
+        )
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送加入频道请求失败。")
+                return False
+        return False
+
+    def leave_channel(self, channel_name):
+        """离开频道"""
+        if not self.connected:
+            print("未连接到服务器，无法离开频道。")
+            return False
+        if not self.player_name:
+            print("请先登录再离开频道。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(
+            CSMsg_pb2.CSChannelMsgType.EN_LEAVE, 
+            channel_name=channel_name
+        )
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送离开频道请求失败。")
+                return False
+        return False
+
+    def send_channel_message(self, channel_name, message_text):
+        """发送频道消息"""
+        if not self.connected:
+            print("未连接到服务器，无法发送频道消息。")
+            return False
+        if not self.player_name:
+            print("请先登录再发送频道消息。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(
+            CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_SEND, 
+            channel_name=channel_name,
+            message_text=message_text
+        )
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送频道消息失败。")
+                return False
+        return False
+
+    def pull_channels(self):
+        """拉取频道列表"""
+        if not self.connected:
+            print("未连接到服务器，无法拉取频道列表。")
+            return False
+        if not self.player_name:
+            print("请先登录再拉取频道列表。")
+            return False
+
+        channel_msg_bytes = self.create_channel_request(CSMsg_pb2.CSChannelMsgType.EN_PULL)
+        if channel_msg_bytes:
+            if self.send_message(channel_msg_bytes):
+                return True
+            else:
+                print("发送拉取频道列表请求失败。")
+                return False
+        return False
+
     def handle_incoming_message(self, response_bytes):
         if not response_bytes:
             return False
@@ -383,6 +568,54 @@ class GameClient:
                                 print(f"\n消息发送确认: {status_msg}{err_detail}\n> ", end='', flush=True)
                         else:
                             print(f"\n收到聊天响应但无chatRsp内容。\n> ", end='', flush=True)
+                    
+                    elif cs_msg_rsp.msgType == CSMsg_pb2.CSMsgType.EN_CHANNEL:
+                        # 处理频道响应
+                        if cs_msg_rsp.HasField('channelRsp'):
+                            channel_rsp = cs_msg_rsp.channelRsp
+                            
+                            if channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_CREATE:
+                                status_msg = "成功" if channel_rsp.isSuccess else "失败"
+                                err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                print(f"\n频道创建{status_msg}{err_detail}\n> ", end='', flush=True)
+                                
+                            elif channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_DESTROY:
+                                status_msg = "成功" if channel_rsp.isSuccess else "失败"
+                                err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                print(f"\n频道销毁{status_msg}{err_detail}\n> ", end='', flush=True)
+                                
+                            elif channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_JOIN:
+                                status_msg = "成功" if channel_rsp.isSuccess else "失败"
+                                err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                print(f"\n加入频道{status_msg}{err_detail}\n> ", end='', flush=True)
+                                
+                            elif channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_LEAVE:
+                                status_msg = "成功" if channel_rsp.isSuccess else "失败"
+                                err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                print(f"\n离开频道{status_msg}{err_detail}\n> ", end='', flush=True)
+                                
+                            elif channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_SEND:
+                                status_msg = "成功" if channel_rsp.isSuccess else "失败"
+                                err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                print(f"\n频道消息发送{status_msg}{err_detail}\n> ", end='', flush=True)
+                                
+                            elif channel_rsp.msgType == CSMsg_pb2.CSChannelMsgType.EN_PULL:
+                                if channel_rsp.isSuccess:
+                                    if channel_rsp.channelInfo:
+                                        print(f"\n========== 频道列表 ==========")
+                                        for channel_info in channel_rsp.channelInfo:
+                                            channel_name = channel_info.channelName
+                                            channel_id = channel_info.channelId
+                                            print(f"频道: {channel_name} (ID: {channel_id})")
+                                        print(f"========== 频道列表结束 ==========")
+                                    else:
+                                        print("\n暂无频道")
+                                else:
+                                    err_detail = f": {channel_rsp.errMsg}" if channel_rsp.HasField("errMsg") and channel_rsp.errMsg else ""
+                                    print(f"\n拉取频道列表失败{err_detail}")
+                                print("> ", end='', flush=True)
+                        else:
+                            print(f"\n收到频道响应但无channelRsp内容。\n> ", end='', flush=True)
                     # Add other EN_RSP handlers here if needed
 
                 # --- Handling Server REQ messages (including notifications like chat messages from other users) ---
@@ -420,6 +653,36 @@ class GameClient:
                                 pass
                             else:
                                 print(f"\n发送消息接收确认失败\n> ", end='', flush=True)
+                    
+                    # 处理频道REQ消息
+                    elif cs_msg_req.CSMsgType == CSMsg_pb2.CSMsgType.EN_CHANNEL and cs_msg_req.HasField('channelReq'):
+                        channel_req_payload = cs_msg_req.channelReq
+                        
+                        # 处理频道消息接收
+                        if channel_req_payload.msgType == CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_RECEIVE:
+                            sender_player_info = channel_req_payload.sendPlayer
+                            sender_name = sender_player_info.playerName if sender_player_info.playerName else "未知用户"
+                            channel_name = channel_req_payload.channelInfo.channelName if channel_req_payload.channelInfo.channelName else "未知频道"
+                            
+                            for chat_msg_item in channel_req_payload.chatMessage:
+                                message_text = chat_msg_item.msg
+                                timestamp = time.strftime('%H:%M:%S', time.localtime(chat_msg_item.time)) if chat_msg_item.time else ""
+                                
+                                # 显示频道消息格式
+                                if timestamp:
+                                    print(f"\n[{timestamp}] #{channel_name} {sender_name}: {message_text}")
+                                else:
+                                    print(f"\n#{channel_name} {sender_name}: {message_text}")
+                                print("> ", end='', flush=True)
+                            
+                            # 发送频道消息接收确认响应回服务器
+                            ack_msg_bytes = self.create_channel_receive_acknowledgment(cs_msg_req)
+                            if self.send_message(ack_msg_bytes):
+                                # 调试信息 - 可以取消注释如果需要看到确认信息
+                                # print(f"\n已发送频道消息接收确认到服务器\n> ", end='', flush=True)
+                                pass
+                            else:
+                                print(f"\n发送频道消息接收确认失败\n> ", end='', flush=True)
                     # 其他REQ类型的处理可以在这里添加（如果需要）
                                 
                 # 保留旧的NTF处理逻辑，以防协议变更或有其他类型的通知
@@ -486,6 +749,12 @@ class GameClient:
         print("  /logout                 - 登出当前用户")
         print("  /chat <消息>            - 发送公共聊天消息")
         print("  /chat @<用户名> <消息>  - 发送私聊消息")
+        print("  /channel create <频道名> - 创建频道")
+        print("  /channel destroy <频道名>- 销毁频道")
+        print("  /channel join <频道名>   - 加入频道")
+        print("  /channel leave <频道名>  - 离开频道")
+        print("  /channel send <频道名> <消息> - 发送频道消息")
+        print("  /channel list           - 查看频道列表")
         print("  /help                   - 显示此帮助信息")
         print("  /quit                   - 退出客户端")
         print("  直接输入内容             - 发送公共聊天消息")
@@ -573,6 +842,60 @@ class GameClient:
                                 print("不能发送空消息。")
                                 continue
                             self.send_chat_message(message_text, recipient_name)
+                        
+                        elif command == '/channel':
+                            if not args:
+                                print("用法: /channel <子命令> [参数...]")
+                                print("可用子命令: create, destroy, join, leave, send, list")
+                                continue
+                            
+                            # Parse channel subcommand and arguments
+                            channel_parts = args.split(maxsplit=1)
+                            subcommand = channel_parts[0].lower()
+                            sub_args = channel_parts[1] if len(channel_parts) > 1 else ""
+                            
+                            if subcommand == 'create':
+                                if not sub_args.strip():
+                                    print("用法: /channel create <频道名>")
+                                    continue
+                                self.create_channel(sub_args.strip())
+                            
+                            elif subcommand == 'destroy':
+                                if not sub_args.strip():
+                                    print("用法: /channel destroy <频道名>")
+                                    continue
+                                self.destroy_channel(sub_args.strip())
+                            
+                            elif subcommand == 'join':
+                                if not sub_args.strip():
+                                    print("用法: /channel join <频道名>")
+                                    continue
+                                self.join_channel(sub_args.strip())
+                            
+                            elif subcommand == 'leave':
+                                if not sub_args.strip():
+                                    print("用法: /channel leave <频道名>")
+                                    continue
+                                self.leave_channel(sub_args.strip())
+                            
+                            elif subcommand == 'send':
+                                send_parts = sub_args.split(maxsplit=1)
+                                if len(send_parts) < 2:
+                                    print("用法: /channel send <频道名> <消息内容>")
+                                    continue
+                                channel_name = send_parts[0]
+                                message_content = send_parts[1]
+                                if not message_content.strip():
+                                    print("不能发送空消息。")
+                                    continue
+                                self.send_channel_message(channel_name, message_content.strip())
+                            
+                            elif subcommand == 'list':
+                                self.pull_channels()
+                            
+                            else:
+                                print(f"未知的频道子命令: {subcommand}")
+                                print("可用子命令: create, destroy, join, leave, send, list")
 
                         else:
                             print(f"未知命令: {command}")
