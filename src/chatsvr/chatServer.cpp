@@ -4,7 +4,7 @@
 #include "spdlog/async.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "util/baseMsgHelper.h"
-
+#include "util/config.hpp"
 chatServer::chatServer(NNet::TEPoll &poller, std::string address,
                        int bufferSize)
     : baseServer(poller, address, bufferSize) {
@@ -12,7 +12,11 @@ chatServer::chatServer(NNet::TEPoll &poller, std::string address,
       "chatSvrLogger", "logs/chatSvrLogger.txt", 1048576 * 5, 2);
   logger->set_level(spdlog::level::debug);
   logger->flush_on(spdlog::level::debug);
-  redis_ptr = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379");
+  auto redisAddr = configManager::getInstance().getRedisAddr();
+  auto [addr, port] = parseAddress(redisAddr);
+  auto ip = resolveAddress(addr);
+  redis_ptr = std::make_unique<sw::redis::Redis>("tcp://" + ip + ":" +
+                                                 std::to_string(port));
   registerHandler();
 }
 
@@ -33,12 +37,11 @@ TFuture<void> chatServer::chatMsgHandler(const int socketFd,
   protocol::ssmsg::SSMsgReq req;
   req.ParseFromString(message);
   std::string ssMsgRspStr;
-  co_await ssChatHandlerMap[req.chatreq().msgtype()](socketFd, req.SerializeAsString(),
-                                          ssMsgRspStr);
+  co_await ssChatHandlerMap[req.chatreq().msgtype()](
+      socketFd, req.SerializeAsString(), ssMsgRspStr);
   response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                            protocol::common::MsgSender::EN_MSG_SENDER_CHATSVR,
                            protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
-
 }
 
 TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
@@ -57,7 +60,7 @@ TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
       }
       co_await ssMsgHandlerMap[req.msgtype()](
           socket.Fd(), req.SerializeAsString(), response);
-    }  else {
+    } else {
       std::cerr << "Unknown message type" << std::endl;
     }
   }

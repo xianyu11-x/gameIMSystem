@@ -3,6 +3,7 @@
 #include "common/SSMsg.pb.h"
 #include "common/player.pb.h"
 #include "util/baseMsgHelper.h"
+#include "util/config.hpp"
 #include "util/sendMsg.h"
 
 NNet::TFuture<std::string>
@@ -20,7 +21,8 @@ sendLogoutMsg(NNet::TEPoll &poller,
   auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                req.SerializeAsString());
-  std::string address = "127.0.0.1:10001";
+  auto &config = configManager::getInstance();
+  std::string address = config.getLoginServerAddr();
   auto baseMsgRspStr = co_await sendMsg(poller, address, baseMsg);
   auto baseMsgRsp = parseStringToBaseMsg(baseMsgRspStr);
   co_return baseMsgRsp.msgbody();

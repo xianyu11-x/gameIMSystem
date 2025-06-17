@@ -3,7 +3,7 @@
 int main(){
     NNet::TLoop<NNet::TEPoll> loop;
     std::cout<<"start gate server"<<std::endl;
-    gateServer server(loop.Poller(),"127.0.0.1:8888", 1024);
+    gateServer server(loop.Poller(),"0.0.0.0:8888", 1024);
     spdlog::get("gateSvrLogger")->info("Gate server started");
     server.start();
     loop.Loop();

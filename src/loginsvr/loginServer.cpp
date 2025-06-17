@@ -2,6 +2,7 @@
 #include "common/BaseMsg.pb.h"
 #include "coroio/promises.hpp"
 #include "gatesvr/CSMsg.pb.h"
+#include "util/addressHelper.hpp"
 #include "util/baseMsgHelper.h"
 #include "util/uuid.hpp"
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <sw/redis++/redis.h>
 #include "spdlog/async.h"
 #include "spdlog/sinks/rotating_file_sink.h"
+#include "util/config.hpp"
 loginServer::loginServer(NNet::TEPoll &poller, std::string address,
                          int bufferSize)
     : baseServer(poller, address, bufferSize){
@@ -17,7 +19,10 @@ loginServer::loginServer(NNet::TEPoll &poller, std::string address,
       "loginSvrLogger", "logs/loginSvrLogger.txt", 1048576 * 5,2);
   logger->set_level(spdlog::level::debug);
   logger->flush_on(spdlog::level::debug);
-  redis_ptr = std::make_unique<sw::redis::Redis>("tcp://127.0.0.1:6379");
+  auto redisAddr = configManager::getInstance().getRedisAddr();
+  auto [addr, port] = parseAddress(redisAddr);
+  auto ip = resolveAddress(addr);
+  redis_ptr = std::make_unique<sw::redis::Redis>("tcp://"+ip+":"+std::to_string(port));
   registerHandler();
 }
 

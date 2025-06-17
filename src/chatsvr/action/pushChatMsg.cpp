@@ -6,6 +6,7 @@
 #include "coroio/epoll.hpp"
 #include "coroio/promises.hpp"
 #include "util/baseMsgHelper.h"
+#include "util/config.hpp"
 #include "util/sendMsg.h"
 NNet::TVoidTask
 chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
@@ -26,7 +27,7 @@ chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
   auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                req.SerializeAsString());
-  std::string address = "127.0.0.1:8888"; // TODO::利用K8s获取目标地址
+  std::string address = configManager::getInstance().getGateServerAddr();
   auto baseMsgRspStr = co_await sendMsg(serverPoller, address, baseMsg);
   auto baseMsgRsp = parseStringToBaseMsg(baseMsgRspStr);
   auto ssMsgRsp = baseMsgRsp.msgbody();

@@ -4,6 +4,7 @@
 #include "coroio/promises.hpp"
 #include "util/baseMsgHelper.h"
 #include "util/sendMsg.h"
+#include "util/config.hpp"
 #include <unordered_set>
 TVoidTask channelServer::ssPushChannelMsg(
     std::unordered_set<std::string> members,
@@ -38,7 +39,8 @@ TVoidTask channelServer::ssPushChannelMsg(
   auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                ssMsgReq.SerializeAsString());                
-  std::string address = "127.0.0.1:8888"; // TODO::利用K8s获取目标地址
+  auto& config = configManager::getInstance();
+  std::string address = config.getGateServerAddr();
   auto baseMsgRspStr = co_await sendMsg(serverPoller, address, baseMsg);
   auto baseMsgRsp = parseStringToBaseMsg(baseMsgRspStr);
   auto ssMsgRspStr = baseMsgRsp.msgbody();
