@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-im-config
+  namespace: game-im-system
+data:
+  # 完整的服务地址（包含端口）
+  CHAT_SERVER_ADDR: "chatsvr-service:10002"
+  CHANNEL_SERVER_ADDR: "channelsvr-service:10003"
+  LOGIN_SERVER_ADDR: "loginsvr-service:10001"
+  GATE_SERVER_ADDR: "gatesvr-service:8888"
+  REDIS_ADDR: "redis-service:6379"

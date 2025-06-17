@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loginsvr
+  namespace: game-im-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loginsvr
+  template:
+    metadata:
+      labels:
+        app: loginsvr
+    spec:
+      containers:
+      - name: loginsvr
+        image: game-im/loginsvr:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 10001
+        envFrom:
+        - configMapRef:
+            name: game-im-config
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}

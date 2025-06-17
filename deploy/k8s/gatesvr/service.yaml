@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatesvr-service
+  namespace: game-im-system
+spec:
+  selector:
+    app: gatesvr
+  ports:
+  - port: 8888
+    targetPort: 8888
+    nodePort: 30888
+  type: NodePort  # 外部访问

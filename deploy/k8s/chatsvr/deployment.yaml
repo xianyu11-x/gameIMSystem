@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatsvr
+  namespace: game-im-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatsvr
+  template:
+    metadata:
+      labels:
+        app: chatsvr
+    spec:
+      containers:
+      - name: chatsvr
+        image: game-im/chatsvr:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 10002
+        envFrom:
+        - configMapRef:
+            name: game-im-config
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}

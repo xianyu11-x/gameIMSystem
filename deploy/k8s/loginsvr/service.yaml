@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loginsvr-service
+  namespace: game-im-system
+spec:
+  selector:
+    app: loginsvr
+  ports:
+  - port: 10001
+    targetPort: 10001
+  type: ClusterIP   

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: channelsvr-service
+  namespace: game-im-system
+spec:
+  selector:
+    app: channelsvr
+  ports:
+  - port: 10003
+    targetPort: 10003
+  type: ClusterIP  # 外部访问
