@@ -36,7 +36,7 @@ TVoidTask channelServer::ssPushChannelMsg(
   ssMsgReq.set_allocated_channelreq(
       new protocol::sschannelmsg::SSChannelMsgReq(ssChannelMsg));
 
-  auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+  auto [baseMsg,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                ssMsgReq.SerializeAsString());                
   auto& config = configManager::getInstance();

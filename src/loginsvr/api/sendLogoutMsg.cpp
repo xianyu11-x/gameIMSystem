@@ -18,12 +18,12 @@ sendLogoutMsg(NNet::TEPoll &poller,
   loginPlayer->set_playername(playerInfo.playername());
   loginPlayer->set_playerid(playerInfo.playerid());
   loginPlayer->set_playertoken(playerInfo.playertoken());
-  auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+  auto [baseMsg , msgId]= createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                req.SerializeAsString());
   auto &config = configManager::getInstance();
   std::string address = config.getLoginServerAddr();
-  auto baseMsgRspStr = co_await sendMsg(poller, address, baseMsg);
+  auto baseMsgRspStr  = co_await sendMsg(poller, address, baseMsg);
   auto baseMsgRsp = parseStringToBaseMsg(baseMsgRspStr);
   co_return baseMsgRsp.msgbody();
 }

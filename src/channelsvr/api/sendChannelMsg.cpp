@@ -6,7 +6,7 @@
 NNet::TFuture<std::string>
 sendChannelMsg(NNet::TEPoll &poller, protocol::ssmsg::SSMsgReq &ssChannelMsg,
                protocol::common::MsgSender msgSender) {
-  auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+  auto [baseMsg ,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                ssChannelMsg.SerializeAsString());
   auto& config = configManager::getInstance();

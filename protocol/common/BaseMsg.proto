@@ -24,6 +24,7 @@ message MsgInfo{
     MsgType msgType = 1;
     MsgSender msgSender = 2;
     MsgBodyType msgBodyType = 3;
+    string msgId = 4;
 }
 
 message baseMsg{

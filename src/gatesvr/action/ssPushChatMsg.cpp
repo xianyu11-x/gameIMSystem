@@ -14,7 +14,6 @@ TFuture<void> gateServer::ssPushChatMsg(const int socketFd,const std::string& me
     ssChatRsp->set_msgtype(ssChatMsg.msgtype());
     ssChatRsp->set_allocated_sendplayer(new protocol::common::PlayerInfo(ssChatMsg.sendplayer()));
     
-
     protocol::csmsg::CSMsgReq csMsgReq;
     csMsgReq.set_csmsgtype(protocol::csmsg::CSMsgType::EN_CHAT);
     auto chatReq = csMsgReq.mutable_chatreq();
@@ -24,7 +23,7 @@ TFuture<void> gateServer::ssPushChatMsg(const int socketFd,const std::string& me
     for(int i = 0;i<ssChatMsg.chatmessage_size();i++){
         chatReq->add_chatmessage()->CopyFrom(ssChatMsg.chatmessage(i));
     }
-    auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+    auto [baseMsg,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
                                  protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
                                  protocol::common::MsgBodyType::EN_REQ, csMsgReq.SerializeAsString());
     auto it = activePlayers.find(ssChatMsg.receiveplayer().playername());

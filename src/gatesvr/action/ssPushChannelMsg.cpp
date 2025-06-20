@@ -59,7 +59,7 @@ TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
     channelReq->add_chatmessage()->CopyFrom(ssChannelMsg.chatmessage(i));
   }
 
-  auto baseMsg = createBaseMsg(
+  auto [baseMsg,msgId] = createBaseMsg(
       protocol::common::MsgType::EN_MSG_TYPE_CS,
       protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
       protocol::common::MsgBodyType::EN_REQ, csMsgReq.SerializeAsString());

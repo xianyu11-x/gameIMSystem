@@ -6,8 +6,8 @@
 #include "spdlog/async.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "util/baseMsgHelper.h"
-#include "util/uuid.hpp"
 #include "util/config.hpp"
+#include "util/uuid.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -46,10 +46,10 @@ void channelServer::registerHandler() {
   channelHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_PULL] =
       std::bind(&channelServer::ssPullChannelList, this, _1, _2, _3);
   ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHANNEL] =
-      std::bind(&channelServer::channelHandler, this, _1, _2, _3);
+      std::bind(&channelServer::channelHandler, this, _1, _2, _3,_4);
 }
 
-TFuture<void> channelServer::channelHandler(const int socketFd,
+TFuture<void> channelServer::channelHandler(const int socketFd,const std::string msgId,
                                             const std::string &message,
                                             std::string &response) {
   protocol::ssmsg::SSMsgReq req;
@@ -57,10 +57,11 @@ TFuture<void> channelServer::channelHandler(const int socketFd,
   std::string ssMsgRspStr;
   co_await channelHandlerMap[req.channelreq().msgtype()](
       socketFd, req.SerializeAsString(), ssMsgRspStr);
-  response =
+  auto [res, _] =
       createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                     protocol::common::MsgSender::EN_MSG_SENDER_CHANNELSVR,
-                    protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+                    protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
@@ -68,14 +69,15 @@ TFuture<void> channelServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                            const std::string &message,
                                            std::string &response) {
   // 处理消息并生成响应
-  //std::cout << "Received message " << std::endl;
+  // std::cout << "Received message " << std::endl;
   auto msg = parseStringToBaseMsg(message);
+  std::string baseMsgId = msg.msginfo().msgid();
   if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
     if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_SS) {
       protocol::ssmsg::SSMsgReq req;
       req.ParseFromString(msg.msgbody());
       co_await ssMsgHandlerMap[req.msgtype()](
-          socket.Fd(), req.SerializeAsString(), response);
+          socket.Fd(),baseMsgId ,req.SerializeAsString(), response);
     } else {
       std::cerr << "Unknown message type" << std::endl;
     }

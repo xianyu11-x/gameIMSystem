@@ -21,24 +21,29 @@ private:
   TFuture<void> ssSendChatMsg(const int socketFd, const std::string &message,
                               std::string &response);
   TFuture<void> ssPullHistoryChatMsg(const int socketFd,
-                                         const std::string &message,
-                                         std::string &response);
-  TFuture<void> chatMsgHandler(const int socketFd, const std::string &message,
+                                     const std::string &message,
+                                     std::string &response);
+  TFuture<void> chatMsgHandler(const int socketFd, const std::string msgId ,const std::string &message,
                                std::string &response);
 
   TVoidTask ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
-                      protocol::common::MsgSender msgSender,int expectAck);
+                      protocol::common::MsgSender msgSender, int expectAck);
 
   void registerHandler();
   TFuture<void> handleMessage(NNet::TEPoll::TSocket &socket,
                               const std::string &message,
                               std::string &response) override;
   void prepareSocket(NNet::TEPoll::TSocket &socket) override {};
-  TFuture<void> afterSocket(NNet::TEPoll::TSocket &socket) override {co_return;};
+  TFuture<void> afterSocket(NNet::TEPoll::TSocket &socket) override {
+    co_return;
+  };
 
   using HandlerFunction = std::function<TFuture<void>(
       const int socketFd, const std::string &message, std::string &response)>;
-  std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction>
+  using BaseHandlerFunction = std::function<TFuture<void>(
+      const int socketFd, const std::string msgId, const std::string &message,
+      std::string &response)>;
+  std::unordered_map<protocol::ssmsg::SSMsgType, BaseHandlerFunction>
       ssMsgHandlerMap;
   std::unordered_map<protocol::sschatmsg::SSChatMsgType, HandlerFunction>
       ssChatHandlerMap;

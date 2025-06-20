@@ -19,7 +19,7 @@ public:
 private:
     TFuture<void> ssLogin(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> ssLogout(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> loginMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> loginMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
 
     void registerHandler();
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
@@ -28,8 +28,9 @@ private:
 
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
+    using BaseHandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string msgId,const std::string& message, std::string& response)>;
     std::unordered_map<protocol::ssloginmsg::SSLoginMsgType, HandlerFunction> loginHandlerMap;
-    std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction> ssMsgHandlerMap;
+    std::unordered_map<protocol::ssmsg::SSMsgType, BaseHandlerFunction> ssMsgHandlerMap;
 
     std::unique_ptr<sw::redis::Redis> redis_ptr;
     std::shared_ptr<spdlog::logger> logger;

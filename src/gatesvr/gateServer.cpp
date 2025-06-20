@@ -32,13 +32,13 @@ void gateServer::registerHandler() {
   csLoginHandlerMap[protocol::csmsg::CSLoginMsgType::EN_PLAYER_LOGOUT] =
       std::bind(&gateServer::csLogout, this, _1, _2, _3);
   csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_LOGIN] =
-      std::bind(&gateServer::loginMsgHandler, this, _1, _2, _3);
+      std::bind(&gateServer::loginMsgHandler, this, _1, _2, _3,_4);
   csChatHandlerMap[protocol::csmsg::CSChatMsgType::EN_SEND] =
       std::bind(&gateServer::csSendChatMsg, this, _1, _2, _3);
   csChatHandlerMap[protocol::csmsg::CSChatMsgType::EN_HISTORY] =
       std::bind(&gateServer::csPullHistoryChatMsg, this, _1, _2, _3);
   csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_CHAT] =
-      std::bind(&gateServer::chatMsgHandler, this, _1, _2, _3);
+      std::bind(&gateServer::chatMsgHandler, this, _1, _2, _3,_4);
   csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_CREATE] =
       std::bind(&gateServer::csCreateChannel, this, _1, _2, _3);
   csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_DESTROY] =
@@ -52,19 +52,18 @@ void gateServer::registerHandler() {
   csChannelHandlerMap[protocol::csmsg::CSChannelMsgType::EN_PULL] =
       std::bind(&gateServer::csPullChannelList, this, _1, _2, _3);
   csMsgHandlerMap[protocol::csmsg::CSMsgType::EN_CHANNEL] =
-      std::bind(&gateServer::channelMsgHandler, this, _1, _2, _3);
+      std::bind(&gateServer::channelMsgHandler, this, _1, _2, _3,_4);
   ssChatMsgHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_RECEIVE] =
       std::bind(&gateServer::ssPushChatMsg, this, _1, _2, _3);
   ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHAT] =
-      std::bind(&gateServer::ssChatMsgHandler, this, _1, _2, _3);
+      std::bind(&gateServer::ssChatMsgHandler, this, _1, _2, _3,_4);
   ssChannelMsgHandlerMap[protocol::sschannelmsg::SSChannelMsgType::EN_RECEIVE] =
       std::bind(&gateServer::ssPushChannelMsg, this, _1, _2, _3);
-    ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHANNEL] =
-      std::bind(&gateServer::ssChannelMsgHandler, this, _1, _2, _3);
-
+  ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHANNEL] =
+      std::bind(&gateServer::ssChannelMsgHandler, this, _1, _2, _3,_4);
 }
 
-TFuture<void> gateServer::loginMsgHandler(const int socketFd,
+TFuture<void> gateServer::loginMsgHandler(const int socketFd,const std::string msgId,
                                           const std::string &message,
                                           std::string &response) {
   protocol::csmsg::CSMsgReq req;
@@ -72,13 +71,15 @@ TFuture<void> gateServer::loginMsgHandler(const int socketFd,
   std::string csMsgRspStr;
   co_await csLoginHandlerMap[req.loginreq().msgtype()](
       socketFd, req.loginreq().info().SerializeAsString(), csMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-                           protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                    protocol::common::MsgBodyType::EN_RSP, csMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
-TFuture<void> gateServer::chatMsgHandler(const int socketFd,
+TFuture<void> gateServer::chatMsgHandler(const int socketFd,const std::string msgId,
                                          const std::string &message,
                                          std::string &response) {
   protocol::csmsg::CSMsgReq req;
@@ -86,27 +87,31 @@ TFuture<void> gateServer::chatMsgHandler(const int socketFd,
   std::string csMsgRspStr;
   co_await csChatHandlerMap[req.chatreq().msgtype()](
       socketFd, req.chatreq().SerializeAsString(), csMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-                           protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                    protocol::common::MsgBodyType::EN_RSP, csMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
-TFuture<void> gateServer::channelMsgHandler(const int socketFd,
-                                         const std::string &message,
-                                         std::string &response) {
+TFuture<void> gateServer::channelMsgHandler(const int socketFd,const std::string msgId,
+                                            const std::string &message,
+                                            std::string &response) {
   protocol::csmsg::CSMsgReq req;
   req.ParseFromString(message);
   std::string csMsgRspStr;
   co_await csChannelHandlerMap[req.channelreq().msgtype()](
       socketFd, req.channelreq().SerializeAsString(), csMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-                           protocol::common::MsgBodyType::EN_RSP, csMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                    protocol::common::MsgBodyType::EN_RSP, csMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
-TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,
+TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,const std::string msgId,
                                            const std::string &message,
                                            std::string &response) {
   protocol::ssmsg::SSMsgReq req;
@@ -114,23 +119,27 @@ TFuture<void> gateServer::ssChatMsgHandler(const int socketFd,
   std::string ssMsgRspStr;
   co_await ssChatMsgHandlerMap[req.chatreq().msgtype()](
       socketFd, req.SerializeAsString(), ssMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-                           protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                    protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
-TFuture<void> gateServer::ssChannelMsgHandler(const int socketFd,
-                                           const std::string &message,
-                                           std::string &response) {
+TFuture<void> gateServer::ssChannelMsgHandler(const int socketFd,const std::string msgId,
+                                              const std::string &message,
+                                              std::string &response) {
   protocol::ssmsg::SSMsgReq req;
   req.ParseFromString(message);
   std::string ssMsgRspStr;
   co_await ssChannelMsgHandlerMap[req.channelreq().msgtype()](
       socketFd, req.SerializeAsString(), ssMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-                           protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
+                    protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr,msgId);
+  response = res;
   co_return;
 }
 
@@ -138,21 +147,22 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                         const std::string &message,
                                         std::string &response) {
   // 处理消息并生成响应
-  //std::cout << "Received message " << std::endl;
+  // std::cout << "Received message " << std::endl;
   logger->debug("Received a message");
   auto msg = parseStringToBaseMsg(message);
+  std::string baseMsgId = msg.msginfo().msgid();
   if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
     if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_CS) {
       protocol::csmsg::CSMsgReq req;
       req.ParseFromString(msg.msgbody());
       co_await csMsgHandlerMap[req.csmsgtype()](
-          socket.Fd(), req.SerializeAsString(), response);
+          socket.Fd(), baseMsgId,req.SerializeAsString(), response);
     } else if (msg.msginfo().msgtype() ==
                protocol::common::MsgType::EN_MSG_TYPE_SS) {
       protocol::ssmsg::SSMsgReq req;
       req.ParseFromString(msg.msgbody());
       co_await ssMsgHandlerMap[req.msgtype()](
-          socket.Fd(), req.SerializeAsString(), response);
+          socket.Fd(), baseMsgId,req.SerializeAsString(), response);
     } else {
       std::cerr << "Unknown message type" << std::endl;
     }

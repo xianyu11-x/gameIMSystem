@@ -38,13 +38,14 @@ private:
                                 std::string &response);
   TFuture<void> ssDestroyChannel(const int socketFd, const std::string &message,
                                  std::string &response);
-  TFuture<void> channelHandler(const int socketFd, const std::string &message,
+  TFuture<void> channelHandler(const int socketFd, const std::string msgId,const std::string &message,
                                std::string &response);
-  TVoidTask ssPushChannelMsg(std::unordered_set<std::string> members,
-                             protocol::common::channelInfo channelInfo,
-                             protocol::common::PlayerInfo sendPlayer,
-                             std::vector<protocol::common::chatMessage> channelChatMessageList,
-                             protocol::common::MsgSender msgSender);
+  TVoidTask ssPushChannelMsg(
+      std::unordered_set<std::string> members,
+      protocol::common::channelInfo channelInfo,
+      protocol::common::PlayerInfo sendPlayer,
+      std::vector<protocol::common::chatMessage> channelChatMessageList,
+      protocol::common::MsgSender msgSender);
   void registerHandler();
   TFuture<void> handleMessage(NNet::TEPoll::TSocket &socket,
                               const std::string &message,
@@ -56,9 +57,12 @@ private:
 
   using HandlerFunction = std::function<TFuture<void>(
       const int socketFd, const std::string &message, std::string &response)>;
+  using BaseHandlerFunction = std::function<TFuture<void>(
+      const int socketFd, const std::string msgId, const std::string &message,
+      std::string &response)>;
   std::unordered_map<protocol::sschannelmsg::SSChannelMsgType, HandlerFunction>
       channelHandlerMap;
-  std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction>
+  std::unordered_map<protocol::ssmsg::SSMsgType, BaseHandlerFunction>
       ssMsgHandlerMap;
 
   std::unique_ptr<sw::redis::Redis> redis_ptr;

@@ -24,7 +24,7 @@ chatServer::ssPushMsg(const protocol::sschatmsg::SSChatMsgReq ssChatMsg,
   for (int i = 0; i < ssChatMsg.chatmessage_size(); i++) {
     chatReq->add_chatmessage()->CopyFrom(ssChatMsg.chatmessage(i));
   }
-  auto baseMsg = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+  auto [baseMsg,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,
                                req.SerializeAsString());
   std::string address = configManager::getInstance().getGateServerAddr();

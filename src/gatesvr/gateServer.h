@@ -23,10 +23,10 @@ public:
 private:
     TFuture<void> csLogin(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csLogout(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> loginMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> loginMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
     TFuture<void> csSendChatMsg(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csPullHistoryChatMsg(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> chatMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> chatMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
 
     TFuture<void> csCreateChannel(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csDestroyChannel(const int socketFd,const std::string& message, std::string& response);
@@ -34,11 +34,11 @@ private:
     TFuture<void> csLeaveChannel(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csSendChannelMsg(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> csPullChannelList(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> channelMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> channelMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
     TFuture<void> ssPushChatMsg(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> ssChatMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> ssChatMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
     TFuture<void> ssPushChannelMsg(const int socketFd,const std::string& message, std::string& response);
-    TFuture<void> ssChannelMsgHandler(const int socketFd,const std::string& message, std::string& response);
+    TFuture<void> ssChannelMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
 
     TFuture<ssize_t> sendChannelMsgToClient(const std::string message,const std::string playerName,const int playerId);
 
@@ -52,12 +52,13 @@ private:
     std::unordered_map<int,NNet::TEPoll::TSocket*> connectedClients;
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
+    using BaseHandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string msgId,const std::string& message, std::string& response)>;
     std::unordered_map<protocol::csmsg::CSLoginMsgType, HandlerFunction> csLoginHandlerMap;
     std::unordered_map<protocol::csmsg::CSChatMsgType, HandlerFunction> csChatHandlerMap;
     std::unordered_map<protocol::csmsg::CSChannelMsgType, HandlerFunction> csChannelHandlerMap;
-    std::unordered_map<protocol::csmsg::CSMsgType, HandlerFunction> csMsgHandlerMap;
+    std::unordered_map<protocol::csmsg::CSMsgType, BaseHandlerFunction> csMsgHandlerMap;
     std::unordered_map<protocol::sschatmsg::SSChatMsgType, HandlerFunction> ssChatMsgHandlerMap;
     std::unordered_map<protocol::sschannelmsg::SSChannelMsgType, HandlerFunction> ssChannelMsgHandlerMap;
-    std::unordered_map<protocol::ssmsg::SSMsgType, HandlerFunction> ssMsgHandlerMap;
+    std::unordered_map<protocol::ssmsg::SSMsgType, BaseHandlerFunction> ssMsgHandlerMap;
     std::shared_ptr<spdlog::logger> logger;
 };

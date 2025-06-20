@@ -28,10 +28,10 @@ void chatServer::registerHandler() {
   ssChatHandlerMap[protocol::sschatmsg::SSChatMsgType::EN_SEND] =
       std::bind(&chatServer::ssSendChatMsg, this, _1, _2, _3);
   ssMsgHandlerMap[protocol::ssmsg::SSMsgType::EN_CHAT] =
-      std::bind(&chatServer::chatMsgHandler, this, _1, _2, _3);
+      std::bind(&chatServer::chatMsgHandler, this, _1, _2, _3,_4);
 }
 
-TFuture<void> chatServer::chatMsgHandler(const int socketFd,
+TFuture<void> chatServer::chatMsgHandler(const int socketFd, const std::string msgId,
                                          const std::string &message,
                                          std::string &response) {
   protocol::ssmsg::SSMsgReq req;
@@ -39,17 +39,20 @@ TFuture<void> chatServer::chatMsgHandler(const int socketFd,
   std::string ssMsgRspStr;
   co_await ssChatHandlerMap[req.chatreq().msgtype()](
       socketFd, req.SerializeAsString(), ssMsgRspStr);
-  response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
-                           protocol::common::MsgSender::EN_MSG_SENDER_CHATSVR,
-                           protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr);
+  auto [res, _] =
+      createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
+                    protocol::common::MsgSender::EN_MSG_SENDER_CHATSVR,
+                    protocol::common::MsgBodyType::EN_RSP, ssMsgRspStr,msgId);
+  response = res;
 }
 
 TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                         const std::string &message,
                                         std::string &response) {
   // 处理消息并生成响应
-  //std::cout << "Received message " << std::endl;
+  // std::cout << "Received message " << std::endl;
   auto msg = parseStringToBaseMsg(message);
+  std::string baseMsgId = msg.msginfo().msgid();
   if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
     if (msg.msginfo().msgtype() == protocol::common::MsgType::EN_MSG_TYPE_SS) {
       protocol::ssmsg::SSMsgReq req;
@@ -59,7 +62,7 @@ TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
         co_return;
       }
       co_await ssMsgHandlerMap[req.msgtype()](
-          socket.Fd(), req.SerializeAsString(), response);
+          socket.Fd(), baseMsgId,req.SerializeAsString(), response);
     } else {
       std::cerr << "Unknown message type" << std::endl;
     }
