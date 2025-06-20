@@ -6,6 +6,7 @@ import os
 import threading
 import time
 import random
+import uuid
 from typing import Optional, Callable
 
 # 添加协议目录到Python路径中
@@ -58,6 +59,10 @@ class TestClient:
             'login_events': [],       # 登录相关事件
             'channel_events': []      # 频道相关事件
         }
+        
+        # 消息ID管理
+        self._pending_requests = {}  # 存储等待响应的请求 {msgId: request_info}
+        self._msg_id_lock = threading.Lock()
         
         # 回调函数
         self.on_message_received: Optional[Callable] = None
@@ -168,6 +173,9 @@ class TestClient:
     
     def _receiver_loop(self):
         """消息接收循环"""
+        last_cleanup_time = time.time()
+        cleanup_interval = 30.0  # 每30秒清理一次超时请求
+        
         while self.running and self.connected:
             response_bytes = self.receive_message(timeout=1.0)
             if response_bytes:
@@ -175,19 +183,34 @@ class TestClient:
                 self.handle_incoming_message(response_bytes)
             elif not self.connected and self.running:
                 break
+            
+            # 定期清理超时的请求
+            current_time = time.time()
+            if current_time - last_cleanup_time > cleanup_interval:
+                self._cleanup_old_requests()
+                last_cleanup_time = current_time
     
-    def create_base_message(self, msg_type, body, body_type=BaseMsg_pb2.MsgBodyType.EN_REQ):
+    def create_base_message(self, msg_type, body, body_type=BaseMsg_pb2.MsgBodyType.EN_REQ, msg_id: str = None):
         """创建基础消息"""
         base_msg = BaseMsg_pb2.baseMsg()
         msg_info = BaseMsg_pb2.MsgInfo()
         msg_info.msgType = msg_type
         msg_info.msgSender = BaseMsg_pb2.MsgSender.EN_MSG_SENDER_CLIENT
         msg_info.msgBodyType = body_type
+        
+        # 如果没有提供msgId且是请求消息，则生成一个
+        if msg_id is None and body_type == BaseMsg_pb2.MsgBodyType.EN_REQ:
+            msg_id = self._generate_msg_id()
+        
+        # 设置msgId
+        if msg_id:
+            msg_info.msgId = msg_id
+            
         base_msg.msgInfo.CopyFrom(msg_info)
         base_msg.msgBody = body
-        return base_msg
+        return base_msg, msg_id
 
-    def create_login_request(self, username: str) -> bytes:
+    def create_login_request(self, username: str) -> tuple[bytes, str]:
         """创建登录请求"""
         player_info = player_pb2.PlayerInfo()
         player_info.playerId = 0
@@ -202,14 +225,18 @@ class TestClient:
         cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_LOGIN
         cs_msg_req.loginReq.CopyFrom(login_req_payload)
         
-        base_msg = self.create_base_message(
+        base_msg, msg_id = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
             cs_msg_req.SerializeToString(),
             BaseMsg_pb2.MsgBodyType.EN_REQ
         )
-        return base_msg.SerializeToString()
+        
+        # 注册请求
+        self._register_request(msg_id, 'login', username=username)
+        
+        return base_msg.SerializeToString(), msg_id
     
-    def create_logout_request(self) -> bytes:
+    def create_logout_request(self) -> tuple[bytes, str]:
         """创建登出请求"""
         player_info = player_pb2.PlayerInfo()
         if self.player_id is not None:
@@ -227,14 +254,18 @@ class TestClient:
         cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_LOGIN
         cs_msg_req.loginReq.CopyFrom(logout_req_payload)
         
-        base_msg = self.create_base_message(
+        base_msg, msg_id = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
             cs_msg_req.SerializeToString(),
             BaseMsg_pb2.MsgBodyType.EN_REQ
         )
-        return base_msg.SerializeToString()
+        
+        # 注册请求
+        self._register_request(msg_id, 'logout', player_name=self.player_name)
+        
+        return base_msg.SerializeToString(), msg_id
 
-    def create_chat_request(self, message_text: str, recipient_name: str) -> bytes:
+    def create_chat_request(self, message_text: str, recipient_name: str) -> tuple[bytes, str]:
         """创建聊天请求 - 必须指定接收者"""
         if not recipient_name:
             raise ValueError("Chat message must have a recipient_name specified")
@@ -262,15 +293,13 @@ class TestClient:
         cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_CHAT
         cs_msg_req.chatReq.CopyFrom(cs_chat_req_payload)
 
-        base_msg = self.create_base_message(
-            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
-            cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ
+        return self._create_request_with_msg_id(
+            cs_msg_req, 'chat_send', 
+            message=message_text, recipient=recipient_name
         )
-        return base_msg.SerializeToString()
 
     def create_channel_request(self, msg_type, channel_name: Optional[str] = None, 
-                             channel_id: Optional[int] = None, message_text: Optional[str] = None) -> bytes:
+                             channel_id: Optional[int] = None, message_text: Optional[str] = None) -> tuple[bytes, str]:
         """创建频道请求"""
         cs_channel_req_payload = CSMsg_pb2.CSChannelMsgReq()
         cs_channel_req_payload.msgType = msg_type
@@ -298,14 +327,16 @@ class TestClient:
         cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_CHANNEL
         cs_msg_req.channelReq.CopyFrom(cs_channel_req_payload)
 
-        base_msg = self.create_base_message(
-            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
-            cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ
+        # 使用通用方法创建带msgId的请求
+        return self._create_request_with_msg_id(
+            cs_msg_req, 
+            f"channel_{msg_type}",
+            channel_name=channel_name,
+            channel_id=channel_id,
+            message_text=message_text
         )
-        return base_msg.SerializeToString()
 
-    def create_chat_history_request(self) -> bytes:
+    def create_chat_history_request(self) -> tuple[bytes, str]:
         """创建拉取聊天历史消息请求"""
         cs_chat_req_payload = CSMsg_pb2.CSChatMsgReq()
         cs_chat_req_payload.msgType = CSMsg_pb2.CSChatMsgType.EN_HISTORY
@@ -320,22 +351,21 @@ class TestClient:
         cs_msg_req.CSMsgType = CSMsg_pb2.CSMsgType.EN_CHAT
         cs_msg_req.chatReq.CopyFrom(cs_chat_req_payload)
 
-        base_msg = self.create_base_message(
-            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
-            cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ
-        )
-        return base_msg.SerializeToString()
+        # 使用通用方法创建带msgId的请求
+        return self._create_request_with_msg_id(cs_msg_req, "chat_history")
 
     def fetch_chat_history(self) -> bool:
         """拉取聊天历史消息"""
         if not self.connected or not self.player_name:
             return False
 
-        history_msg_bytes = self.create_chat_history_request()
-        return self.send_message(history_msg_bytes)
+        history_msg_bytes, msg_id = self.create_chat_history_request()
+        success = self.send_message(history_msg_bytes)
+        if success:
+            print(f"Client {self.client_id} 发送聊天历史请求，msgId: {msg_id}")
+        return success
 
-    def create_chat_receive_acknowledgment(self, received_msg_req) -> bytes:
+    def create_chat_receive_acknowledgment(self, received_msg_req, original_msg_id: str = None) -> bytes:
         """创建聊天消息接收确认"""
         cs_chat_rsp_payload = CSMsg_pb2.CSChatMsgRsp()
         cs_chat_rsp_payload.msgType = CSMsg_pb2.CSChatMsgType.EN_RECEIVE
@@ -348,15 +378,16 @@ class TestClient:
         cs_msg_rsp.msgType = CSMsg_pb2.CSMsgType.EN_CHAT
         cs_msg_rsp.chatRsp.CopyFrom(cs_chat_rsp_payload)
         
-        base_msg = self.create_base_message(
+        base_msg, _ = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
             cs_msg_rsp.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_RSP
+            BaseMsg_pb2.MsgBodyType.EN_RSP,
+            msg_id=original_msg_id
         )
         
         return base_msg.SerializeToString()
 
-    def create_channel_receive_acknowledgment(self, received_msg_req) -> bytes:
+    def create_channel_receive_acknowledgment(self, received_msg_req, original_msg_id: str = None) -> bytes:
         """创建频道消息接收确认"""
         cs_channel_rsp_payload = CSMsg_pb2.CSChannelMsgRsp()
         cs_channel_rsp_payload.msgType = CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_RECEIVE
@@ -369,10 +400,11 @@ class TestClient:
         cs_msg_rsp.msgType = CSMsg_pb2.CSMsgType.EN_CHANNEL
         cs_msg_rsp.channelRsp.CopyFrom(cs_channel_rsp_payload)
         
-        base_msg = self.create_base_message(
+        base_msg, _ = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
             cs_msg_rsp.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_RSP
+            BaseMsg_pb2.MsgBodyType.EN_RSP,
+            msg_id=original_msg_id
         )
         
         return base_msg.SerializeToString()
@@ -392,7 +424,7 @@ class TestClient:
             'client_id': self.client_id
         })
         
-        login_msg_bytes = self.create_login_request(username)
+        login_msg_bytes, msg_id = self.create_login_request(username)
         return self.send_message(login_msg_bytes)
     
     def logout(self) -> bool:
@@ -408,7 +440,7 @@ class TestClient:
             'client_id': self.client_id
         })
         
-        logout_msg_bytes = self.create_logout_request()
+        logout_msg_bytes, msg_id = self.create_logout_request()
         success = self.send_message(logout_msg_bytes)
         if success:
             self.player_name = None
@@ -427,7 +459,7 @@ class TestClient:
             return False
         
         try:
-            chat_msg_bytes = self.create_chat_request(message_text, recipient_name)
+            chat_msg_bytes, msg_id = self.create_chat_request(message_text, recipient_name)
             return self.send_message(chat_msg_bytes)
         except ValueError as e:
             if self.on_error:
@@ -448,23 +480,29 @@ class TestClient:
             'player_name': self.player_name
         })
         
-        channel_msg_bytes = self.create_channel_request(
+        channel_msg_bytes, msg_id = self.create_channel_request(
             CSMsg_pb2.CSChannelMsgType.EN_JOIN,
             channel_name=channel_name
         )
-        return self.send_message(channel_msg_bytes)
+        success = self.send_message(channel_msg_bytes)
+        if success:
+            print(f"Client {self.client_id} 发送加入频道请求，频道: {channel_name}，msgId: {msg_id}")
+        return success
     
     def send_channel_message(self, channel_name: str, message_text: str) -> bool:
         """发送频道消息"""
         if not self.connected or not self.player_name:
             return False
         
-        channel_msg_bytes = self.create_channel_request(
+        channel_msg_bytes, msg_id = self.create_channel_request(
             CSMsg_pb2.CSChannelMsgType.EN_CHANNELMSG_SEND,
             channel_name=channel_name,
             message_text=message_text
         )
-        return self.send_message(channel_msg_bytes)
+        success = self.send_message(channel_msg_bytes)
+        if success:
+            print(f"Client {self.client_id} 发送频道消息，频道: {channel_name}，内容: {message_text}，msgId: {msg_id}")
+        return success
     
     def create_channel(self, channel_name: str) -> bool:
         """创建频道"""
@@ -480,11 +518,14 @@ class TestClient:
             'player_name': self.player_name
         })
         
-        channel_msg_bytes = self.create_channel_request(
+        channel_msg_bytes, msg_id = self.create_channel_request(
             CSMsg_pb2.CSChannelMsgType.EN_CREATE,
             channel_name=channel_name
         )
-        return self.send_message(channel_msg_bytes)
+        success = self.send_message(channel_msg_bytes)
+        if success:
+            print(f"Client {self.client_id} 发送创建频道请求，频道: {channel_name}，msgId: {msg_id}")
+        return success
     
     def destroy_channel(self, channel_name: str) -> bool:
         """销毁频道"""
@@ -500,11 +541,14 @@ class TestClient:
             'player_name': self.player_name
         })
         
-        channel_msg_bytes = self.create_channel_request(
+        channel_msg_bytes, msg_id = self.create_channel_request(
             CSMsg_pb2.CSChannelMsgType.EN_DESTROY,
             channel_name=channel_name
         )
-        return self.send_message(channel_msg_bytes)
+        success = self.send_message(channel_msg_bytes)
+        if success:
+            print(f"Client {self.client_id} 发送销毁频道请求，频道: {channel_name}，msgId: {msg_id}")
+        return success
     
     def handle_incoming_message(self, response_bytes: bytearray):
         """处理接收到的消息"""
@@ -513,12 +557,20 @@ class TestClient:
             base_msg.ParseFromString(response_bytes)
             
             msg_info = base_msg.msgInfo
+            msg_id = msg_info.msgId if msg_info.msgId else None
             
             if msg_info.msgType == BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS:
                 if msg_info.msgBodyType == BaseMsg_pb2.MsgBodyType.EN_RSP:
                     # 处理响应消息
                     cs_msg_rsp = CSMsg_pb2.CSMsgRsp()
                     cs_msg_rsp.ParseFromString(base_msg.msgBody)
+                    
+                    # 如果有msgId，获取对应的请求信息
+                    original_request = None
+                    if msg_id:
+                        original_request = self._get_and_remove_request(msg_id)
+                        if original_request:
+                            print(f"Client {self.client_id}: 收到响应 msgId={msg_id}, 原请求类型: {original_request['request_type']}")
                     
                     if cs_msg_rsp.msgType == CSMsg_pb2.CSMsgType.EN_LOGIN:
                         login_rsp = cs_msg_rsp.loginRsp
@@ -535,7 +587,9 @@ class TestClient:
                                 'event': 'login_success',
                                 'username': self.player_name,
                                 'player_id': self.player_id,
-                                'client_id': self.client_id
+                                'client_id': self.client_id,
+                                'msg_id': msg_id,
+                                'original_request': original_request
                             })
                             
                             if self.on_login_success:
@@ -569,7 +623,7 @@ class TestClient:
                             self._log_received_private_chat(chat_req)
                             
                             # 发送接收确认
-                            ack_msg_bytes = self.create_chat_receive_acknowledgment(cs_msg_req)
+                            ack_msg_bytes = self.create_chat_receive_acknowledgment(cs_msg_req, original_msg_id=msg_id)
                             self.send_message(ack_msg_bytes)
                     
                     # 处理频道消息接收
@@ -580,7 +634,7 @@ class TestClient:
                             self._log_received_channel_chat(channel_req)
                             
                             # 发送接收确认
-                            ack_msg_bytes = self.create_channel_receive_acknowledgment(cs_msg_req)
+                            ack_msg_bytes = self.create_channel_receive_acknowledgment(cs_msg_req, original_msg_id=msg_id)
                             self.send_message(ack_msg_bytes)
                     
                     if self.on_message_received:
@@ -766,6 +820,49 @@ class TestClient:
             'login_events_count': len(self.detailed_logs['login_events']),
             'channel_events_count': len(self.detailed_logs['channel_events'])
         }
+    
+    def _generate_msg_id(self) -> str:
+        """生成唯一的消息ID"""
+        return str(uuid.uuid4())
+    
+    def _register_request(self, msg_id: str, request_type: str, **kwargs):
+        """注册待响应的请求"""
+        with self._msg_id_lock:
+            self._pending_requests[msg_id] = {
+                'request_type': request_type,
+                'timestamp': time.time(),
+                'client_id': self.client_id,
+                **kwargs
+            }
+    
+    def _get_and_remove_request(self, msg_id: str) -> Optional[dict]:
+        """获取并移除待响应的请求"""
+        with self._msg_id_lock:
+            return self._pending_requests.pop(msg_id, None)
+    
+    def _cleanup_old_requests(self, timeout: float = 60.0):
+        """清理超时的请求"""
+        current_time = time.time()
+        with self._msg_id_lock:
+            expired_keys = [
+                msg_id for msg_id, req_info in self._pending_requests.items()
+                if current_time - req_info['timestamp'] > timeout
+            ]
+            for msg_id in expired_keys:
+                del self._pending_requests[msg_id]
+    
+    def _create_request_with_msg_id(self, cs_msg_req, request_type: str, **kwargs) -> tuple[bytes, str]:
+        """创建带有msgId的请求消息的通用方法"""
+        base_msg, msg_id = self.create_base_message(
+            BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
+            cs_msg_req.SerializeToString(),
+            BaseMsg_pb2.MsgBodyType.EN_REQ
+        )
+        
+        # 注册请求
+        self._register_request(msg_id, request_type, **kwargs)
+        
+        return base_msg.SerializeToString(), msg_id
     
 # 生成随机测试数据的工具函数
 def generate_random_username(client_id: int) -> str:
