@@ -6,6 +6,29 @@
 #include "util/sendMsg.h"
 #include <cstddef>
 
+TFuture<ssize_t>
+gateServer::sendChannelMsgToClient(const std::string message,
+                                   const std::string playerName,
+                                   const int playerId) {
+  auto playerSocket = activePlayers.find(playerName)->second;
+  logger->debug("playerFd {},from {}", playerSocket->Fd(), playerName);
+  auto baseMsgRsp = co_await sendMsg(playerSocket, message);
+  std::cout << "wakeUpSocket: " << playerSocket->Fd() << std::endl;
+  // logger->debug("playerFd {},from {}",wakeUpSocket->Fd()
+  wakeUpClientCoroutine(playerSocket);
+  // localLogger->debug("receive rsp,from {}", memberName);
+  auto baseMsgRspParsed = parseStringToBaseMsg(baseMsgRsp);
+  auto csMsgRsp = baseMsgRspParsed.msgbody();
+  protocol::csmsg::CSMsgRsp csRsp;
+  csRsp.ParseFromString(csMsgRsp);
+  if (!csRsp.channelrsp().issuccess()) {
+    logger->error("Push channel message to player {} failed: {}", playerName,
+                  csRsp.channelrsp().errmsg());
+    co_return -1;
+  }
+  co_return 0;
+}
+
 TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
                                            const std::string &message,
                                            std::string &response) {
@@ -45,40 +68,26 @@ TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
   bool pushSuccess = true;
   std::string pushError = "";
   std::vector<TFuture<ssize_t>> futures;
+
   // 获取频道成员列表
   if (ssChannelMsg.channelinfo().members_size() > 0) {
+    // auto& localActivePlayers = activePlayers;
+    // auto localLogger = logger;
+    // auto localWakeUpFunction= [this](NNet::TEPoll::TSocket *socket) {
+    //   wakeUpClientCoroutine(socket);
+    // };
     for (int i = 0; i < ssChannelMsg.channelinfo().members_size(); i++) {
       auto member = ssChannelMsg.channelinfo().members(i);
       auto memberid = member.playerid();
       auto memberName = playerIdToPlayerName.find(memberid)->second;
       auto it = activePlayers.find(memberName);
       if (it != activePlayers.end()) {
-        auto pushChannelMsg = [ baseMsg,memberid,
-                               this]() -> TFuture<ssize_t> {
-          auto coroMemberName = playerIdToPlayerName.find(memberid)->second;
-          auto playerSocket = activePlayers.find(coroMemberName)->second;
-          logger->debug("playerFd {},from {}",activePlayers.find(coroMemberName)->first ,coroMemberName);
-          auto baseMsgRsp = co_await sendMsg(playerSocket, baseMsg);
-          wakeUpClientCoroutine(playerSocket);
-          logger->debug("receive rsp,from {}", coroMemberName);
-          auto baseMsgRspParsed = parseStringToBaseMsg(baseMsgRsp);
-          auto csMsgRsp = baseMsgRspParsed.msgbody();
-          protocol::csmsg::CSMsgRsp csRsp;
-          csRsp.ParseFromString(csMsgRsp);
-          if (!csRsp.channelrsp().issuccess()) {
-            logger->error("Push channel message to player {} failed: {}",
-                          coroMemberName, csRsp.channelrsp().errmsg());
-            co_return -1;
-          }
-          logger->info("Push channel message to player {} success", coroMemberName);
-          co_return 0;
-        }();
-        futures.push_back(std::move(pushChannelMsg));
+        futures.push_back(sendChannelMsgToClient(baseMsg, memberName, memberid));
       }
     }
   }
   auto pushResults = co_await All(std::move(futures));
-  for(const auto& result : pushResults) {
+  for (const auto &result : pushResults) {
     if (result < 0) {
       pushSuccess = false;
       pushError = "Failed to push message to all channel members";

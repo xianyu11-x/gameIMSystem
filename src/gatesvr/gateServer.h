@@ -16,7 +16,7 @@
 #include "spdlog/async.h"
 #pragma once
 
-class gateServer : public baseServer {
+class gateServer : public baseServer{
 public:
     gateServer(NNet::TEPoll& poller,std::string address,int bufferSize);
     ~gateServer() override = default;
@@ -39,6 +39,9 @@ private:
     TFuture<void> ssChatMsgHandler(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> ssPushChannelMsg(const int socketFd,const std::string& message, std::string& response);
     TFuture<void> ssChannelMsgHandler(const int socketFd,const std::string& message, std::string& response);
+
+    TFuture<ssize_t> sendChannelMsgToClient(const std::string message,const std::string playerName,const int playerId);
+
     void registerHandler();
     TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
     void prepareSocket(NNet::TEPoll::TSocket& socket) override;

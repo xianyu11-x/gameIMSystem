@@ -138,7 +138,7 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
                                         const std::string &message,
                                         std::string &response) {
   // 处理消息并生成响应
-  std::cout << "Received message " << std::endl;
+  //std::cout << "Received message " << std::endl;
   logger->debug("Received a message");
   auto msg = parseStringToBaseMsg(message);
   if (msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_REQ) {
