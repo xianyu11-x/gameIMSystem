@@ -2,7 +2,6 @@
 #include "common/SSMsg.pb.h"
 #include "gatesvr/gateServer.h"
 #include "loginsvr/api/sendLoginMsg.h"
-#include "util/sendMsg.h"
 #include <sys/socket.h>
 
 TFuture<void> gateServer::csLogin(const int socketFd,
@@ -59,8 +58,8 @@ TFuture<void> gateServer::csLogin(const int socketFd,
     }
     std::cout << "Player login success, player name: "
               << playerInfo.playername() << std::endl;
-    logger->info("Player login success, player name: {}",
-                 playerInfo.playername());
+    logger->info("Player login success, player name: {},current active players: {}",
+                 playerInfo.playername(),activePlayers.size());
   } else {
     std::cerr << "Player login failed" << std::endl;
     logger->error("Player login failed, player name: {}",

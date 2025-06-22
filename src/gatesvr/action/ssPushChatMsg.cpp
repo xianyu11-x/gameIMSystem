@@ -2,7 +2,6 @@
 #include "gatesvr/CSMsg.pb.h"
 #include "gatesvr/gateServer.h"
 #include "util/baseMsgHelper.h"
-#include "util/sendMsg.h"
 TFuture<void> gateServer::ssPushChatMsg(const int socketFd,const std::string& message, std::string& response){
     protocol::ssmsg::SSMsgReq req;
     req.ParseFromString(message);
@@ -28,8 +27,7 @@ TFuture<void> gateServer::ssPushChatMsg(const int socketFd,const std::string& me
                                  protocol::common::MsgBodyType::EN_REQ, csMsgReq.SerializeAsString());
     auto it = activePlayers.find(ssChatMsg.receiveplayer().playername());
     if(it != activePlayers.end()){
-        auto csBaseRsp = co_await sendMsg(it->second, baseMsg);
-        wakeUpClientCoroutine(it->second);
+        auto csBaseRsp = co_await pendSendMsg(it->second->Fd(), baseMsg,msgId);
         auto baseMsgRsp = parseStringToBaseMsg(csBaseRsp);
         auto csMsgRsp = baseMsgRsp.msgbody();
         protocol::csmsg::CSMsgRsp csRsp;

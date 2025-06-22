@@ -5,6 +5,7 @@ import sys
 import os
 import threading
 import time
+import uuid
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -151,12 +152,23 @@ class GameClient:
                 break
         print("消息接收线程已停止。")
 
-    def create_base_message(self, msg_type, body, body_type=BaseMsg_pb2.MsgBodyType.EN_REQ): # Added body_type
+    def create_base_message(self, msg_type, body, body_type=BaseMsg_pb2.MsgBodyType.EN_REQ, msg_id=None):
+        """创建基础消息，为REQ生成UUID，为RSP使用传入的msgId"""
         base_msg = BaseMsg_pb2.baseMsg()
         msg_info = BaseMsg_pb2.MsgInfo()
         msg_info.msgType = msg_type
         msg_info.msgSender = BaseMsg_pb2.MsgSender.EN_MSG_SENDER_CLIENT
-        msg_info.msgBodyType = body_type # Use passed body_type
+        msg_info.msgBodyType = body_type
+        
+        # 如果是请求消息，生成新的UUID；如果是响应消息，使用传入的msgId
+        if body_type == BaseMsg_pb2.MsgBodyType.EN_REQ:
+            msg_info.msgId = str(uuid.uuid4())
+        elif body_type == BaseMsg_pb2.MsgBodyType.EN_RSP and msg_id:
+            msg_info.msgId = msg_id
+        else:
+            # 默认情况下也生成UUID
+            msg_info.msgId = str(uuid.uuid4())
+            
         base_msg.msgInfo.CopyFrom(msg_info)
         base_msg.msgBody = body
         return base_msg
@@ -178,7 +190,7 @@ class GameClient:
         base_msg = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS, 
             cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ # Explicitly REQ
+            BaseMsg_pb2.MsgBodyType.EN_REQ
         )
         return base_msg.SerializeToString()
     
@@ -199,7 +211,7 @@ class GameClient:
         base_msg = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS, 
             cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ # Explicitly REQ
+            BaseMsg_pb2.MsgBodyType.EN_REQ
         )
         return base_msg.SerializeToString()
 
@@ -232,7 +244,7 @@ class GameClient:
         base_msg = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,
             cs_msg_req.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_REQ # Explicitly REQ
+            BaseMsg_pb2.MsgBodyType.EN_REQ
         )
         return base_msg.SerializeToString()
 
@@ -293,7 +305,7 @@ class GameClient:
                 return False
         return False
 
-    def create_chat_receive_acknowledgment(self, received_msg_req):
+    def create_chat_receive_acknowledgment(self, received_msg_req, request_msg_id):
         """创建聊天消息接收确认 - Client acknowledging receipt of a message"""
         # 创建聊天回复
         cs_chat_rsp_payload = CSMsg_pb2.CSChatMsgRsp()
@@ -308,16 +320,17 @@ class GameClient:
         cs_msg_rsp.msgType = CSMsg_pb2.CSMsgType.EN_CHAT  # 聊天消息类型
         cs_msg_rsp.chatRsp.CopyFrom(cs_chat_rsp_payload)
         
-        # 创建基础消息
+        # 创建基础消息，使用原请求的msgId
         base_msg = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,  # CS消息类型
             cs_msg_rsp.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_RSP  # 响应类型
+            BaseMsg_pb2.MsgBodyType.EN_RSP,  # 响应类型
+            msg_id=request_msg_id  # 使用原请求的msgId
         )
         
         return base_msg.SerializeToString()
 
-    def create_channel_receive_acknowledgment(self, received_msg_req):
+    def create_channel_receive_acknowledgment(self, received_msg_req, request_msg_id):
         """创建频道消息接收确认 - Client acknowledging receipt of a channel message"""
         # 创建频道回复
         cs_channel_rsp_payload = CSMsg_pb2.CSChannelMsgRsp()
@@ -332,11 +345,12 @@ class GameClient:
         cs_msg_rsp.msgType = CSMsg_pb2.CSMsgType.EN_CHANNEL  # 频道消息类型
         cs_msg_rsp.channelRsp.CopyFrom(cs_channel_rsp_payload)
         
-        # 创建基础消息
+        # 创建基础消息，使用原请求的msgId
         base_msg = self.create_base_message(
             BaseMsg_pb2.MsgType.EN_MSG_TYPE_CS,  # CS消息类型
             cs_msg_rsp.SerializeToString(),
-            BaseMsg_pb2.MsgBodyType.EN_RSP  # 响应类型
+            BaseMsg_pb2.MsgBodyType.EN_RSP,  # 响应类型
+            msg_id=request_msg_id  # 使用原请求的msgId
         )
         
         return base_msg.SerializeToString()
@@ -645,8 +659,8 @@ class GameClient:
                                     print(f"\n[{sender_name}]: {message_text}")
                                 print("> ", end='', flush=True)
                             
-                            # 发送接收确认响应回服务器
-                            ack_msg_bytes = self.create_chat_receive_acknowledgment(cs_msg_req)
+                            # 发送接收确认响应回服务器，使用原请求的msgId
+                            ack_msg_bytes = self.create_chat_receive_acknowledgment(cs_msg_req, msg_info.msgId)
                             if self.send_message(ack_msg_bytes):
                                 # 调试信息 - 可以取消注释如果需要看到确认信息
                                 # print(f"\\n已发送消息接收确认到服务器\\n> ", end='', flush=True)
@@ -675,8 +689,8 @@ class GameClient:
                                     print(f"\n#{channel_name} {sender_name}: {message_text}")
                                 print("> ", end='', flush=True)
                             
-                            # 发送频道消息接收确认响应回服务器
-                            ack_msg_bytes = self.create_channel_receive_acknowledgment(cs_msg_req)
+                            # 发送频道消息接收确认响应回服务器，使用原请求的msgId
+                            ack_msg_bytes = self.create_channel_receive_acknowledgment(cs_msg_req, msg_info.msgId)
                             if self.send_message(ack_msg_bytes):
                                 # 调试信息 - 可以取消注释如果需要看到确认信息
                                 # print(f"\n已发送频道消息接收确认到服务器\n> ", end='', flush=True)
@@ -694,7 +708,7 @@ class GameClient:
 
             # Add more handlers for other base_msg.msgInfo.msgType if needed
             else:
-                print(f"\n收到未处理的基础消息类型: {BaseMsg_pb2.MsgType.Name(msg_info.msgType)}\n> ", end='', flush=True)
+                print(f"\n收到未处理的基础消息类型: {BaseMsg.pb2.MsgType.Name(msg_info.msgType)}\n> ", end='', flush=True)
 
             return True
             

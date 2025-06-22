@@ -35,8 +35,8 @@ TFuture<void> gateServer::csLogout(const int socketFd,
     socketFdToPlayerId.erase(socketFd);
     std::cout << "Player logout success, player name: "
               << playerInfo.playername() << std::endl;
-    logger->info("Player logout success, player name: {}",
-                 playerInfo.playername());
+    logger->info("Player logout success, player name: {},current active players: {}",
+                 playerInfo.playername(), activePlayers.size());
   } else {
     std::cerr << "Player logout failed" << std::endl;
     logger->error("Player logout failed, player name: {}",

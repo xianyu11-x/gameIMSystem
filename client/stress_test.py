@@ -98,6 +98,7 @@ class StressTestManager:
     
     def run_client_scenario(self, client: TestClient, scenario_config: Dict[str, Any]):
         """运行客户端测试场景"""
+        success = False
         try:
             # 连接
             if not client.connect():
@@ -112,26 +113,39 @@ class StressTestManager:
                 return False
             
             # 等待登录完成
-            time.sleep(20.0)
-            
+            # login_wait_time = 20.0
+            # login_start = time.time()
+            # while time.time() - login_start < login_wait_time:
+            #     if client.player_name:
+            #         break
+            #     time.sleep(0.5)
+            time.sleep(20)
             # 检查是否登录成功
             if not client.player_name:
+                self.on_error(f"Client {client.client_id} login timeout after 20s")
                 return False
             
             # 执行测试场景
             self._execute_test_actions(client, scenario_config)
-            
+            success = True
             return True
             
         except Exception as e:
             self.on_error(f"Client {client.client_id} scenario failed: {str(e)}")
             return False
         finally:
-            # 清理
-            if client.player_name:
-                client.logout()
-                time.sleep(0.5)
-            client.disconnect()
+            # 确保清理，无论是否成功
+            time.sleep(20)
+            try:
+                # 使用新的安全清理方法
+                client.safe_cleanup()
+            except Exception as cleanup_error:
+                self.on_error(f"Client {client.client_id} cleanup error: {str(cleanup_error)}")
+                # 即使清理失败，也要强制断开连接
+                try:
+                    client.disconnect()
+                except:
+                    pass
     
     def _execute_test_actions(self, client: TestClient, config: Dict[str, Any]):
         """执行测试动作"""
@@ -379,6 +393,9 @@ class StressTestManager:
         self.admin_client = TestClient(client_id=-1, host=self.host, port=self.port)
         self.admin_client.assigned_username = f"ChannelAdmin_{int(time.time()) % 10000}"
         
+        # 保存管理员用户名供清理时使用
+        self.admin_username = self.admin_client.assigned_username
+        
         try:
             # 连接和登录
             if not self.admin_client.connect():
@@ -423,90 +440,123 @@ class StressTestManager:
         except Exception as e:
             print(f"❌ 频道设置过程出错: {str(e)}")
             return False
-    
+
     def cleanup_test_channels(self, scenario_config: Dict[str, Any]) -> bool:
         """在测试后清理频道"""
         if not scenario_config.get('enable_channel_test', False):
-            return True
-        
-        if not hasattr(self, 'admin_client') or not self.admin_client:
-            print("⚠️  没有找到管理客户端，跳过频道清理")
             return True
         
         channels_to_destroy = scenario_config.get('channels_to_join', [])
         if not channels_to_destroy:
             return True
         
+        # 检查是否有保存的管理员用户名
+        if not hasattr(self, 'admin_username') or not self.admin_username:
+            print("⚠️  没有找到原始管理员用户名，跳过频道清理")
+            return True
+        
         print(f"正在清理测试频道: {channels_to_destroy}")
+        print(f"使用原始管理员用户名: {self.admin_username}")
         
         try:
-            # 重新创建一个管理客户端
-            if self.admin_client.connected:
-                self.admin_client.disconnect()
+            # 创建一个全新的清理客户端，使用原始管理员用户名
+            cleanup_client = TestClient(client_id=-2, host=self.host, port=self.port)
+            cleanup_client.assigned_username = self.admin_username
             
-            # 确保管理客户端重新连接
-            if not self.admin_client.connect():
-                print("❌ 管理客户端连接失败，无法进行频道清理")
+            print(f"创建新的清理客户端，用户名: {self.admin_username}")
+            
+            # 连接
+            print("正在连接到服务器...")
+            if not cleanup_client.connect():
+                print("❌ 清理客户端连接失败")
+                return False
+            print("✓ 清理客户端连接成功")
+            
+            # 登录
+            print(f"正在登录用户: {self.admin_username}")
+            if not cleanup_client.login(self.admin_username):
+                print("❌ 清理客户端登录请求发送失败")
+                cleanup_client.disconnect()
                 return False
             
-            # 管理客户端登录
-            if not self.admin_client.login(self.admin_client.assigned_username):
-                print("❌ 管理客户端登录失败，无法进行频道清理")
-                return False
+            # 等待登录完成并验证
+            login_wait_time = 10.0
+            login_start = time.time()
+            while time.time() - login_start < login_wait_time:
+                if cleanup_client.player_name:
+                    break
+                time.sleep(0.5)
             
-            # 等待登录处理完成
-            time.sleep(2.0)
-            
-            # 确保登录真的成功且有player_name
-            if not self.admin_client.player_name:
-                print(f"❌ 管理客户端登录验证失败: player_name为空")
+            # 验证登录成功
+            if not cleanup_client.player_name:
+                print(f"❌ 清理客户端登录超时，等待了 {login_wait_time} 秒")
+                print(f"  - 连接状态: {cleanup_client.connected}")
+                print(f"  - player_name: {cleanup_client.player_name}")
+                cleanup_client.disconnect()
                 return False
                 
-            print(f"✓ 管理客户端登录成功: {self.admin_client.player_name}")
-            print(f"管理客户端信息: ID={self.admin_client.player_id}, Token={self.admin_client.player_token}")
+            print(f"✓ 清理客户端登录成功: {cleanup_client.player_name}")
+            print(f"  - 玩家ID: {cleanup_client.player_id}")
+            print(f"  - Token: {cleanup_client.player_token}")
             
             # 等待一下确保登录完全处理完成
             time.sleep(1.0)
             
             # 销毁所有频道
             success_count = 0
-            for channel_name in channels_to_destroy:
-                print(f"尝试销毁频道: {channel_name}, 当前客户端: {self.admin_client.player_name}")
+            for i, channel_name in enumerate(channels_to_destroy):
+                print(f"正在销毁频道 [{i+1}/{len(channels_to_destroy)}]: {channel_name}")
+                print(f"  - 使用管理员: {cleanup_client.player_name}")
                 
-                # 使用直接的方式验证和调用destroy_channel
-                if not self.admin_client.player_name:
-                    print(f"❌ 客户端player_name为空，无法销毁频道")
-                    continue
+                # 再次验证客户端状态
+                if not cleanup_client.player_name:
+                    print(f"❌ 客户端player_name为空，无法继续销毁频道")
+                    break
                     
-                if not self.admin_client.connected:
-                    print(f"❌ 客户端未连接，无法销毁频道")
-                    continue
+                if not cleanup_client.connected:
+                    print(f"❌ 客户端连接已断开，无法继续销毁频道")
+                    break
                 
                 try:
-                    # 使用TestClient的destroy_channel方法
-                    if self.admin_client.destroy_channel(channel_name):
+                    if cleanup_client.destroy_channel(channel_name):
                         print(f"✓ 频道销毁请求已发送: {channel_name}")
                         success_count += 1
                     else:
                         print(f"❌ 频道销毁失败: {channel_name}")
-                        
-                        # 尝试查看错误原因
-                        print(f"  - 连接状态: {self.admin_client.connected}")
-                        print(f"  - 玩家名称: {self.admin_client.player_name}")
-                        print(f"  - 玩家ID: {self.admin_client.player_id}")
+                        print(f"  - 连接状态: {cleanup_client.connected}")
+                        print(f"  - 玩家名称: {cleanup_client.player_name}")
+                        print(f"  - 玩家ID: {cleanup_client.player_id}")
                     
-                    time.sleep(0.5)  # 避免请求过快
+                    # 每次销毁后稍等
+                    time.sleep(0.8)
+                    
                 except Exception as e:
                     print(f"❌ 销毁频道 {channel_name} 时出错: {str(e)}")
             
             # 等待销毁完成
+            print("等待频道销毁完成...")
             time.sleep(2.0)
             
             print(f"频道清理完成: {success_count}/{len(channels_to_destroy)} 个频道")
-            return True
+            
+            # 清理客户端
+            print("正在登出清理客户端...")
+            if cleanup_client.player_name:
+                if cleanup_client.logout():
+                    print("✓ 清理客户端登出成功")
+                else:
+                    print("❌ 清理客户端登出失败")
+                time.sleep(0.5)
+            
+            cleanup_client.disconnect()
+            print("✓ 清理客户端已断开连接")
+            
+            return success_count > 0
             
         except Exception as e:
             print(f"❌ 频道清理过程出错: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
         finally:
             # 清理管理客户端

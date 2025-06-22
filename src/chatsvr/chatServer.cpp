@@ -66,6 +66,17 @@ TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
     } else {
       std::cerr << "Unknown message type" << std::endl;
     }
+  }else if(msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_RSP){
+    auto it = msgIdToCoroutineMap.find(baseMsgId);
+    if (it != msgIdToCoroutineMap.end()) {
+      auto coroutine = it->second;
+      msgIdToResponseMap[baseMsgId] = message;
+      coroutine.resume();
+      msgIdToCoroutineMap.erase(it);
+    } else {
+      std::cerr << "No coroutine found for message ID: " << baseMsgId
+                << std::endl;
+    }
   }
 
   co_return;

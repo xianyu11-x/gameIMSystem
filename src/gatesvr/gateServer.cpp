@@ -166,20 +166,18 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
     } else {
       std::cerr << "Unknown message type" << std::endl;
     }
+  }else if(msg.msginfo().msgbodytype() == protocol::common::MsgBodyType::EN_RSP){
+    auto it = msgIdToCoroutineMap.find(baseMsgId);
+    if (it != msgIdToCoroutineMap.end()) {
+      auto coroutine = it->second;
+      msgIdToResponseMap[baseMsgId] = message;
+      coroutine.resume();
+      msgIdToCoroutineMap.erase(it);
+    } else {
+      std::cerr << "No coroutine found for message ID: " << baseMsgId
+                << std::endl;
+    }
   }
-  // response = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_CS,
-  // protocol::common::MsgSender::EN_MSG_SENDER_GATESVR,
-  // protocol::common::MsgBodyType::EN_RSP, message); auto checkedMsg =
-  // parserStringToBaseMsg(response); std::cout << "Parsed message: " <<
-  // checkedMsg.msgbody() << std::endl; std::cout << "Parsed message type: " <<
-  // checkedMsg.msginfo().msgtype() << std::endl; std::cout << "Parsed message
-  // sender: " << checkedMsg.msginfo().msgsender() << std::endl; std::cout <<
-  // "Parsed message body type: " << checkedMsg.msginfo().msgbodytype() <<
-  // std::endl; auto& savedSocket = connectedClients.begin()->second;
-  // std::string uuid = connectedClients.begin()->first;
-  // std::cout<<uuid<< std::endl;
-  // std::string sendStr="push to client";
-  // co_await savedSocket.WriteSome(sendStr.data(), sendStr.size());
   co_return;
 }
 
@@ -190,8 +188,12 @@ void gateServer::prepareSocket(NNet::TEPoll::TSocket &socket) {
 
 TFuture<void> gateServer::afterSocket(NNet::TEPoll::TSocket &socket) {
   int fd = socket.Fd();
+  logger->debug("Socket {} closed, removing client coroutine", fd);
+  logger->debug("current client coroutines size: {},current connected clients size: {},current active players size: {}",
+                clientCoroutines.size(),connectedClients.size(),activePlayers.size());
   auto playerIdIter = socketFdToPlayerId.find(fd);
   if (playerIdIter != socketFdToPlayerId.end()) {
+    logger->debug("socket {} close Logout out Player", fd,playerIdIter->second);
     auto playerId = playerIdIter->second;
     auto playerName = playerIdToPlayerName.find(playerId)->second;
     protocol::common::PlayerInfo playerInfo;

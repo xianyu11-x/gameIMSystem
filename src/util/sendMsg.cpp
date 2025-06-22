@@ -1,4 +1,4 @@
-#include "sendMsg.h"
+#include "server.h"
 #include "coroio/address.hpp"
 #include "coroio/corochain.hpp"
 #include "coroio/epoll.hpp"
@@ -28,20 +28,21 @@ NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,
   std::string response;
   std::vector<char> in(maxLineSize);
   size_t size = co_await socket.ReadSome(in.data(), in.size());
+  socket.Close();
   if (size > 0) {
     response.assign(in.data(), size);
   }
   co_return response;
 }
 
-NNet::TFuture<std::string> sendMsg(NNet::TSocket *socket,
-                                   const std::string &message) {
-  co_await socket->WriteSome(message.data(), message.size());
-  std::string response;
-  std::vector<char> in(4096);
-  size_t size = co_await socket->ReadSome(in.data(), in.size());
-  if (size > 0) {
-    response.assign(in.data(), size);
-  }
-  co_return response;
-}
+// NNet::TFuture<std::string> baseServer::sendMsg(NNet::TSocket *socket,
+//                                    const std::string &message) {
+//   co_await socket->WriteSome(message.data(), message.size());
+//   std::string response;
+//   std::vector<char> in(4096);
+//   size_t size = co_await socket->ReadSome(in.data(), in.size());
+//   if (size > 0) {
+//     response.assign(in.data(), size);
+//   }
+//   co_return response;
+// }

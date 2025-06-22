@@ -69,11 +69,23 @@ class TestClient:
         self.on_login_success: Optional[Callable] = None
         self.on_error: Optional[Callable] = None
 
+        # 添加关闭状态锁和状态标志
+        self._close_lock = threading.Lock()
+        self._is_closing = False
+        self._logout_attempts = 0
+        self._max_logout_attempts = 3
+
     def connect(self) -> bool:
         """连接到服务器"""
+        with self._close_lock:
+            if self._is_closing:
+                return False
+                
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.settimeout(10.0)  # 设置连接超时
             self.socket.connect((self.host, self.port))
+            self.socket.settimeout(None)  # 连接后移除超时
             self.connected = True
             self.stats['start_time'] = time.time()
             
@@ -86,29 +98,51 @@ class TestClient:
             self.stats['errors'] += 1
             if self.on_error:
                 self.on_error(f"Client {self.client_id} connect failed: {str(e)}")
+            self.connected = False
             return False
     
     def disconnect(self):
         """断开连接"""
+        with self._close_lock:
+            if self._is_closing:
+                return
+            self._is_closing = True
+        
+        # 先停止运行标志
         self.running = False
         self.stats['end_time'] = time.time()
         
+        # 等待接收线程结束
+        if self.receiver_thread and self.receiver_thread.is_alive():
+            self.receiver_thread.join(timeout=3.0)
+            if self.receiver_thread.is_alive():
+                if self.on_error:
+                    self.on_error(f"Client {self.client_id} receiver thread did not stop gracefully")
+        
+        # 关闭socket
         if self.socket:
             try:
-                self.socket.shutdown(socket.SHUT_RDWR)
+                # 先关闭发送方向
+                self.socket.shutdown(socket.SHUT_WR)
+                # 给一点时间让对方响应
+                time.sleep(0.1)
+                # 再关闭接收方向
+                self.socket.shutdown(socket.SHUT_RD)
+            except OSError:
+                pass  # socket可能已经被对方关闭
+            
+            try:
+                self.socket.close()
             except OSError:
                 pass
-            self.socket.close()
+            
             self.socket = None
         
         self.connected = False
-        
-        if self.receiver_thread and self.receiver_thread.is_alive():
-            self.receiver_thread.join(timeout=2.0)
     
     def send_message(self, message_bytes: bytes) -> bool:
         """发送消息"""
-        if not self.connected or not self.socket:
+        if not self.connected or not self.socket or self._is_closing:
             return False
         
         try:
@@ -128,7 +162,7 @@ class TestClient:
     
     def receive_message(self, timeout: float = 1.0) -> Optional[bytearray]:
         """接收消息"""
-        if not self.connected or not self.socket:
+        if not self.connected or not self.socket or self._is_closing:
             return None
         
         try:
@@ -164,7 +198,7 @@ class TestClient:
         except socket.timeout:
             return None
         except Exception as e:
-            if self.running:
+            if self.running and not self._is_closing:
                 self.stats['errors'] += 1
                 if self.on_error:
                     self.on_error(f"Client {self.client_id} receive failed: {str(e)}")
@@ -176,7 +210,7 @@ class TestClient:
         last_cleanup_time = time.time()
         cleanup_interval = 30.0  # 每30秒清理一次超时请求
         
-        while self.running and self.connected:
+        while self.running and self.connected and not self._is_closing:
             response_bytes = self.receive_message(timeout=1.0)
             if response_bytes:
                 self.stats['messages_received'] += 1
@@ -361,8 +395,8 @@ class TestClient:
 
         history_msg_bytes, msg_id = self.create_chat_history_request()
         success = self.send_message(history_msg_bytes)
-        if success:
-            print(f"Client {self.client_id} 发送聊天历史请求，msgId: {msg_id}")
+        # if success:
+        #     print(f"Client {self.client_id} 发送聊天历史请求，msgId: {msg_id}")
         return success
 
     def create_chat_receive_acknowledgment(self, received_msg_req, original_msg_id: str = None) -> bytes:
@@ -428,24 +462,50 @@ class TestClient:
         return self.send_message(login_msg_bytes)
     
     def logout(self) -> bool:
-        """登出"""
+        """登出，带重试机制"""
         if not self.connected or not self.player_name:
             return False
+        
+        # 防止重复logout
+        if self._logout_attempts >= self._max_logout_attempts:
+            if self.on_error:
+                self.on_error(f"Client {self.client_id} logout attempts exceeded")
+            return False
+        
+        self._logout_attempts += 1
         
         # 记录登出事件
         self.detailed_logs['login_events'].append({
             'timestamp': time.time(),
             'event': 'logout_attempt',
             'username': self.player_name,
-            'client_id': self.client_id
+            'client_id': self.client_id,
+            'attempt': self._logout_attempts
         })
         
         logout_msg_bytes, msg_id = self.create_logout_request()
         success = self.send_message(logout_msg_bytes)
+        
         if success:
+            # 等待一小段时间让logout请求发送完成
+            time.sleep(0.1)
+            
+            # 清理本地状态
             self.player_name = None
             self.player_token = None
             self.player_id = None
+            
+            # 记录logout成功
+            self.detailed_logs['login_events'].append({
+                'timestamp': time.time(),
+                'event': 'logout_sent',
+                'client_id': self.client_id,
+                'msg_id': msg_id
+            })
+        else:
+            if self.on_error:
+                self.on_error(f"Client {self.client_id} logout send failed, attempt {self._logout_attempts}")
+        
         return success
     
     def send_chat_message(self, message_text: str, recipient_name: str) -> bool:
@@ -485,8 +545,8 @@ class TestClient:
             channel_name=channel_name
         )
         success = self.send_message(channel_msg_bytes)
-        if success:
-            print(f"Client {self.client_id} 发送加入频道请求，频道: {channel_name}，msgId: {msg_id}")
+        #if success:
+            #print(f"Client {self.client_id} 发送加入频道请求，频道: {channel_name}，msgId: {msg_id}")
         return success
     
     def send_channel_message(self, channel_name: str, message_text: str) -> bool:
@@ -500,8 +560,8 @@ class TestClient:
             message_text=message_text
         )
         success = self.send_message(channel_msg_bytes)
-        if success:
-            print(f"Client {self.client_id} 发送频道消息，频道: {channel_name}，内容: {message_text}，msgId: {msg_id}")
+        #if success:
+            #print(f"Client {self.client_id} 发送频道消息，频道: {channel_name}，内容: {message_text}，msgId: {msg_id}")
         return success
     
     def create_channel(self, channel_name: str) -> bool:
@@ -523,8 +583,8 @@ class TestClient:
             channel_name=channel_name
         )
         success = self.send_message(channel_msg_bytes)
-        if success:
-            print(f"Client {self.client_id} 发送创建频道请求，频道: {channel_name}，msgId: {msg_id}")
+        # if success:
+        #     print(f"Client {self.client_id} 发送创建频道请求，频道: {channel_name}，msgId: {msg_id}")
         return success
     
     def destroy_channel(self, channel_name: str) -> bool:
@@ -546,8 +606,8 @@ class TestClient:
             channel_name=channel_name
         )
         success = self.send_message(channel_msg_bytes)
-        if success:
-            print(f"Client {self.client_id} 发送销毁频道请求，频道: {channel_name}，msgId: {msg_id}")
+        # if success:
+        #     print(f"Client {self.client_id} 发送销毁频道请求，频道: {channel_name}，msgId: {msg_id}")
         return success
     
     def handle_incoming_message(self, response_bytes: bytearray):
@@ -569,8 +629,8 @@ class TestClient:
                     original_request = None
                     if msg_id:
                         original_request = self._get_and_remove_request(msg_id)
-                        if original_request:
-                            print(f"Client {self.client_id}: 收到响应 msgId={msg_id}, 原请求类型: {original_request['request_type']}")
+                        # if original_request:
+                        #     print(f"Client {self.client_id}: 收到响应 msgId={msg_id}, 原请求类型: {original_request['request_type']}")
                     
                     if cs_msg_rsp.msgType == CSMsg_pb2.CSMsgType.EN_LOGIN:
                         login_rsp = cs_msg_rsp.loginRsp
