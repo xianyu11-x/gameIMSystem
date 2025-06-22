@@ -105,7 +105,7 @@ class StressTestManager:
                 return False
             
             # 等待随机时间避免瞬间冲击
-            time.sleep(random.uniform(0, scenario_config.get('login_delay', 2.0)))
+            time.sleep(random.uniform(0, scenario_config.get('login_delay', 10.0)))
             
             # 登录，使用预分配的用户名
             username = getattr(client, 'assigned_username', f"TestUser_{client.client_id}")

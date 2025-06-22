@@ -14,7 +14,7 @@
 
 class chatServer : public baseServer {
 public:
-  chatServer(NNet::TEPoll &poller, std::string address, int bufferSize);
+  chatServer(NNet::TUring &poller, std::string address, int bufferSize);
   ~chatServer() override = default;
 
 private:
@@ -30,11 +30,11 @@ private:
                       protocol::common::MsgSender msgSender, int expectAck);
 
   void registerHandler();
-  TFuture<void> handleMessage(NNet::TEPoll::TSocket &socket,
+  TFuture<void> handleMessage(NNet::TUring::TSocket &socket,
                               const std::string &message,
                               std::string &response) override;
-  void prepareSocket(NNet::TEPoll::TSocket &socket) override {};
-  TFuture<void> afterSocket(NNet::TEPoll::TSocket &socket) override {
+  void prepareSocket(NNet::TUring::TSocket &socket) override {};
+  TFuture<void> afterSocket(NNet::TUring::TSocket &socket) override {
     co_return;
   };
 

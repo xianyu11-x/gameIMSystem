@@ -13,7 +13,7 @@
 #include <string>
 #include <sw/redis++/redis.h>
 
-channelServer::channelServer(NNet::TEPoll &poller, std::string address,
+channelServer::channelServer(NNet::TUring &poller, std::string address,
                              int bufferSize)
     : baseServer(poller, address, bufferSize) {
   logger = spdlog::rotating_logger_mt<spdlog::async_factory>(
@@ -65,7 +65,7 @@ TFuture<void> channelServer::channelHandler(const int socketFd,const std::string
   co_return;
 }
 
-TFuture<void> channelServer::handleMessage(NNet::TEPoll::TSocket &socket,
+TFuture<void> channelServer::handleMessage(NNet::TUring::TSocket &socket,
                                            const std::string &message,
                                            std::string &response) {
   // 处理消息并生成响应
@@ -97,6 +97,6 @@ TFuture<void> channelServer::handleMessage(NNet::TEPoll::TSocket &socket,
   co_return;
 }
 
-void channelServer::prepareSocket(NNet::TEPoll::TSocket &socket) {
+void channelServer::prepareSocket(NNet::TUring::TSocket &socket) {
   // 在这里可以对socket进行一些预处理，比如设置非阻塞模式等
 }

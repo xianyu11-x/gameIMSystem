@@ -14,7 +14,7 @@
 
 class loginServer : public baseServer {
 public:
-    loginServer(NNet::TEPoll& poller,std::string address,int bufferSize);
+    loginServer(NNet::TUring& poller,std::string address,int bufferSize);
     ~loginServer() override = default;
 private:
     TFuture<void> ssLogin(const int socketFd,const std::string& message, std::string& response);
@@ -22,9 +22,9 @@ private:
     TFuture<void> loginMsgHandler(const int socketFd,const std::string msgId,const std::string& message, std::string& response);
 
     void registerHandler();
-    TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
-    void prepareSocket(NNet::TEPoll::TSocket& socket) override;
-    TFuture<void> afterSocket(NNet::TEPoll::TSocket& socket) override{co_return;};
+    TFuture<void> handleMessage(NNet::TUring::TSocket& socket,const std::string& message, std::string& response) override;
+    void prepareSocket(NNet::TUring::TSocket& socket) override;
+    TFuture<void> afterSocket(NNet::TUring::TSocket& socket) override{co_return;};
 
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;

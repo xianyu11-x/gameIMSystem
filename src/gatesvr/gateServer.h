@@ -18,7 +18,7 @@
 
 class gateServer : public baseServer{
 public:
-    gateServer(NNet::TEPoll& poller,std::string address,int bufferSize);
+    gateServer(NNet::TUring& poller,std::string address,int bufferSize);
     ~gateServer() override = default;
 private:
     TFuture<void> csLogin(const int socketFd,const std::string& message, std::string& response);
@@ -43,13 +43,13 @@ private:
     TFuture<ssize_t> sendChannelMsgToClient(const std::string message,const std::string playerName,const int playerId);
 
     void registerHandler();
-    TFuture<void> handleMessage(NNet::TEPoll::TSocket& socket,const std::string& message, std::string& response) override;
-    void prepareSocket(NNet::TEPoll::TSocket& socket) override;
-    TFuture<void> afterSocket(NNet::TEPoll::TSocket& socket) override;
-    std::unordered_map<std::string,NNet::TEPoll::TSocket*> activePlayers;
+    TFuture<void> handleMessage(NNet::TUring::TSocket& socket,const std::string& message, std::string& response) override;
+    void prepareSocket(NNet::TUring::TSocket& socket) override;
+    TFuture<void> afterSocket(NNet::TUring::TSocket& socket) override;
+    std::unordered_map<std::string,NNet::TUring::TSocket*> activePlayers;
     std::unordered_map<int64_t,std::string> playerIdToPlayerName;
     std::unordered_map<int,int> socketFdToPlayerId;
-    std::unordered_map<int,NNet::TEPoll::TSocket*> connectedClients;
+    std::unordered_map<int,NNet::TUring::TSocket*> connectedClients;
 
     using HandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string& message, std::string& response)>;
     using BaseHandlerFunction = std::function<TFuture<void>(const int socketFd,const std::string msgId,const std::string& message, std::string& response)>;

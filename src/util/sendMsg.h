@@ -6,5 +6,5 @@
 #include "coroio/socket.hpp"
 #include "util/addressHelper.hpp"
 #pragma once
-NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,const std::string& address,const std::string& message);
+NNet::TFuture<std::string> sendMsg(NNet::TUring &poller,const std::string& address,const std::string& message);
 

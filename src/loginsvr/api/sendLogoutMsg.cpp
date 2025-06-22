@@ -7,7 +7,7 @@
 #include "util/sendMsg.h"
 
 NNet::TFuture<std::string>
-sendLogoutMsg(NNet::TEPoll &poller,
+sendLogoutMsg(NNet::TUring &poller,
               const protocol::common::PlayerInfo &playerInfo,
               protocol::common::MsgSender msgSender) {
   protocol::ssmsg::SSMsgReq req;

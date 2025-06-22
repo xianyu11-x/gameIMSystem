@@ -11,6 +11,35 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+# =============================================================================
+# 调试配置
+# =============================================================================
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "=== Configuring Debug Build ===")
+    
+    # 详细的调试信息配置
+    set(CMAKE_CXX_FLAGS_DEBUG "-g3 -gdwarf-4 -O0")
+    
+    # 保留栈帧信息，对协程调试很重要
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer")
+    
+    # 禁止内联和尾调用优化，确保调试准确性
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-inline -fno-optimize-sibling-calls")
+    
+    # 添加更多运行时检查
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fstack-protector-strong")
+    
+    # 可选：启用AddressSanitizer (取消注释以启用)
+    # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined")
+    # set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined")
+    
+    message(STATUS "Debug flags: ${CMAKE_CXX_FLAGS_DEBUG}")
+    message(STATUS "=== Debug Configuration Complete ===")
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-restrict")
+endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")

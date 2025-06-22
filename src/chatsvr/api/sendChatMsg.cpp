@@ -4,7 +4,7 @@
 #include "util/sendMsg.h"
 #include "util/config.hpp"
 NNet::TFuture<std::string>
-sendChatMsg(NNet::TEPoll &poller, protocol::ssmsg::SSMsgReq &ssChatMsg,
+sendChatMsg(NNet::TUring &poller, protocol::ssmsg::SSMsgReq &ssChatMsg,
             protocol::common::MsgSender msgSender) {
   auto [baseMsg,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,

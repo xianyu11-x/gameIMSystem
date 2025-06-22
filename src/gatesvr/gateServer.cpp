@@ -14,7 +14,7 @@
 #include <spdlog/async.h>
 #include <string>
 
-gateServer::gateServer(NNet::TEPoll &poller, std::string address,
+gateServer::gateServer(NNet::TUring &poller, std::string address,
                        int bufferSize)
     : baseServer(poller, address, bufferSize) {
   logger = spdlog::rotating_logger_mt<spdlog::async_factory>(
@@ -143,7 +143,7 @@ TFuture<void> gateServer::ssChannelMsgHandler(const int socketFd,const std::stri
   co_return;
 }
 
-TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
+TFuture<void> gateServer::handleMessage(NNet::TUring::TSocket &socket,
                                         const std::string &message,
                                         std::string &response) {
   // 处理消息并生成响应
@@ -181,12 +181,12 @@ TFuture<void> gateServer::handleMessage(NNet::TEPoll::TSocket &socket,
   co_return;
 }
 
-void gateServer::prepareSocket(NNet::TEPoll::TSocket &socket) {
+void gateServer::prepareSocket(NNet::TUring::TSocket &socket) {
   // 在这里可以对socket进行一些预处理，比如设置非阻塞模式等
   connectedClients.insert({socket.Fd(), &socket});
 }
 
-TFuture<void> gateServer::afterSocket(NNet::TEPoll::TSocket &socket) {
+TFuture<void> gateServer::afterSocket(NNet::TUring::TSocket &socket) {
   int fd = socket.Fd();
   logger->debug("Socket {} closed, removing client coroutine", fd);
   logger->debug("current client coroutines size: {},current connected clients size: {},current active players size: {}",

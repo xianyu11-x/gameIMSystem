@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 #include <sw/redis++/redis.h>
-loginServer::loginServer(NNet::TEPoll& poller, std::string address,
+loginServer::loginServer(NNet::TUring& poller, std::string address,
     int bufferSize)
     : baseServer(poller, address, bufferSize)
 {
@@ -52,7 +52,7 @@ TFuture<void> loginServer::loginMsgHandler(const int socketFd, const std::string
     co_return;
 }
 
-TFuture<void> loginServer::handleMessage(NNet::TEPoll::TSocket& socket,
+TFuture<void> loginServer::handleMessage(NNet::TUring::TSocket& socket,
     const std::string& message,
     std::string& response)
 {
@@ -85,7 +85,7 @@ TFuture<void> loginServer::handleMessage(NNet::TEPoll::TSocket& socket,
     co_return;
 }
 
-void loginServer::prepareSocket(NNet::TEPoll::TSocket& socket)
+void loginServer::prepareSocket(NNet::TUring::TSocket& socket)
 {
     // 在这里可以对socket进行一些预处理，比如设置非阻塞模式等
 }

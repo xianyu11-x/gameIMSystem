@@ -11,7 +11,7 @@
 
 using namespace NNet;
 
-void baseServer::wakeUpClientCoroutine(TEPoll::TSocket* socket)
+void baseServer::wakeUpClientCoroutine(TUring::TSocket* socket)
 {
     if (!socket)
         return;
@@ -23,14 +23,14 @@ void baseServer::wakeUpClientCoroutine(TEPoll::TSocket* socket)
     }
 }
 
-void baseServer::removeClientCoroutine(TEPoll::TSocket* socket)
+void baseServer::removeClientCoroutine(TUring::TSocket* socket)
 {
     if (!socket)
         return;
     clientCoroutines.erase(socket->Fd());
 }
 
-TVoidTask baseServer::ReadPacket(TEPoll::TSocket& socket, std::queue<std::string>& sendPackets)
+TVoidTask baseServer::ReadPacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets)
 {
     std::vector<char> buffer(bufferSize);
     ssize_t size = 0;
@@ -58,7 +58,7 @@ TVoidTask baseServer::ReadPacket(TEPoll::TSocket& socket, std::queue<std::string
     co_return;
 }
 
-TVoidTask baseServer::WritePacket(TEPoll::TSocket& socket, std::queue<std::string>& sendPackets)
+TVoidTask baseServer::WritePacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets)
 {
     while (true) {
         while (sendPackets.empty()) {
@@ -80,7 +80,7 @@ void baseServer::ResumeWriter(int fd)
     }
 }
 
-TVoidTask baseServer::client_handler(TEPoll::TSocket socket)
+TVoidTask baseServer::client_handler(TUring::TSocket socket)
 {
 
     ssize_t size = 0;
@@ -124,7 +124,7 @@ TFuture<std::string> baseServer::pendSendMsg(int fd, const std::string& message,
 
 TVoidTask baseServer::start()
 {
-    typename NNet::TEPoll::TSocket serverSocket(serverPoller,
+    typename NNet::TUring::TSocket serverSocket(serverPoller,
         serverAddress.Domain());
     serverSocket.Bind(serverAddress);
     serverSocket.Listen();

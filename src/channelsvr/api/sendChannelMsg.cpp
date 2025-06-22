@@ -4,7 +4,7 @@
 #include "util/config.hpp"
 
 NNet::TFuture<std::string>
-sendChannelMsg(NNet::TEPoll &poller, protocol::ssmsg::SSMsgReq &ssChannelMsg,
+sendChannelMsg(NNet::TUring &poller, protocol::ssmsg::SSMsgReq &ssChannelMsg,
                protocol::common::MsgSender msgSender) {
   auto [baseMsg ,msgId] = createBaseMsg(protocol::common::MsgType::EN_MSG_TYPE_SS,
                                msgSender, protocol::common::MsgBodyType::EN_REQ,

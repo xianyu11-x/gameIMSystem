@@ -75,7 +75,7 @@ TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
     if (ssChannelMsg.channelinfo().members_size() > 0) {
         // auto& localActivePlayers = activePlayers;
         // auto localLogger = logger;
-        // auto localWakeUpFunction= [this](NNet::TEPoll::TSocket *socket) {
+        // auto localWakeUpFunction= [this](NNet::TUring::TSocket *socket) {
         //   wakeUpClientCoroutine(socket);
         // };
         for (int i = 0; i < ssChannelMsg.channelinfo().members_size(); i++) {

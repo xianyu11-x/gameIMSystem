@@ -5,7 +5,7 @@
 #include "util/sendMsg.h"
 #include "util/config.hpp"
 
-NNet::TFuture<std::string> sendLoginMsg(NNet::TEPoll &poller,
+NNet::TFuture<std::string> sendLoginMsg(NNet::TUring &poller,
                                         const std::string &playerName,protocol::common::MsgSender msgSender) {
   protocol::ssmsg::SSMsgReq req;
   req.set_msgtype(protocol::ssmsg::SSMsgType::EN_LOGIN);

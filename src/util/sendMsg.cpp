@@ -9,7 +9,7 @@ static bool isValidIP(const std::string &ip) {
   return inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr)) != 0;
 }
 
-NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,
+NNet::TFuture<std::string> sendMsg(NNet::TUring &poller,
                                    const std::string &address,
                                    const std::string &message) {
   static constexpr int maxLineSize = 4096;
@@ -21,7 +21,7 @@ NNet::TFuture<std::string> sendMsg(NNet::TEPoll &poller,
   }else{
     addr = NNet::TAddress{ip, port};
   }
-  NNet::TEPoll::TSocket socket{poller, addr.Domain()};
+  NNet::TUring::TSocket socket{poller, addr.Domain()};
   co_await socket.Connect(addr, NNet::TClock::now() +
                                     std::chrono::milliseconds(1000));
   co_await socket.WriteSome(message.data(), message.size());

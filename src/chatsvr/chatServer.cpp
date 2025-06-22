@@ -5,7 +5,7 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "util/baseMsgHelper.h"
 #include "util/config.hpp"
-chatServer::chatServer(NNet::TEPoll &poller, std::string address,
+chatServer::chatServer(NNet::TUring &poller, std::string address,
                        int bufferSize)
     : baseServer(poller, address, bufferSize) {
   logger = spdlog::rotating_logger_mt<spdlog::async_factory>(
@@ -46,7 +46,7 @@ TFuture<void> chatServer::chatMsgHandler(const int socketFd, const std::string m
   response = res;
 }
 
-TFuture<void> chatServer::handleMessage(NNet::TEPoll::TSocket &socket,
+TFuture<void> chatServer::handleMessage(NNet::TUring::TSocket &socket,
                                         const std::string &message,
                                         std::string &response) {
   // 处理消息并生成响应
