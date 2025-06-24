@@ -18,6 +18,10 @@ gateServer::sendChannelMsgToClient(const std::string message,
         protocol::common::MsgBodyType::EN_REQ, message);
     auto baseMsgRsp = co_await pendSendMsg(playerSocket->Fd(), baseMsg, msgId);
     // localLogger->debug("receive rsp,from {}", memberName);
+    if (baseMsgRsp == "") {
+        logger->error("Failed to send message to player: {}", playerName);
+        co_return -1;
+    }
     auto baseMsgRspParsed = parseStringToBaseMsg(baseMsgRsp);
     auto csMsgRsp = baseMsgRspParsed.msgbody();
     protocol::csmsg::CSMsgRsp csRsp;
@@ -81,7 +85,12 @@ TFuture<void> gateServer::ssPushChannelMsg(const int socketFd,
         for (int i = 0; i < ssChannelMsg.channelinfo().members_size(); i++) {
             auto member = ssChannelMsg.channelinfo().members(i);
             auto memberid = member.playerid();
-            auto memberName = playerIdToPlayerName.find(memberid)->second;
+            auto memberIt = playerIdToPlayerName.find(memberid);
+            if(memberIt == playerIdToPlayerName.end()) {
+                logger->warn("Member ID {} not found in playerIdToPlayerName map", memberid);
+                continue;
+            }
+            auto memberName = memberIt->second;
             auto it = activePlayers.find(memberName);
             if (it != activePlayers.end()) {
                 futures.push_back(sendChannelMsgToClient(csMsgReqStr, memberName, memberid));

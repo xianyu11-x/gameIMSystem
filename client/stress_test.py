@@ -137,15 +137,9 @@ class StressTestManager:
             # 确保清理，无论是否成功
             time.sleep(20)
             try:
-                # 使用新的安全清理方法
-                client.safe_cleanup()
-            except Exception as cleanup_error:
-                self.on_error(f"Client {client.client_id} cleanup error: {str(cleanup_error)}")
-                # 即使清理失败，也要强制断开连接
-                try:
-                    client.disconnect()
-                except:
-                    pass
+                client.disconnect()
+            except:
+                pass
     
     def _execute_test_actions(self, client: TestClient, config: Dict[str, Any]):
         """执行测试动作"""

@@ -8,6 +8,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <util/addressHelper.hpp>
 #pragma once
 using namespace NNet;
@@ -36,9 +37,9 @@ public:
 
     TVoidTask client_handler(TUring::TSocket socket);
 
-    TVoidTask ReadPacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets);
+    TFuture<void> ReadPacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets);
 
-    TVoidTask WritePacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets);
+    TFuture<void> WritePacket(TUring::TSocket& socket, std::queue<std::string>& sendPackets);
 
     TFuture<std::string> pendSendMsg(int fd, const std::string& message,const std::string& msgId);
 
@@ -46,11 +47,23 @@ public:
 
     TVoidTask start();
 
+    void checkAndWakeupClientHandler(int fd);
+
+    void cleanupResource(int fd);
+
     void wakeUpClientCoroutine(TUring::TSocket* socket);
 
     void removeClientCoroutine(TUring::TSocket* socket);
     // void run(int port,int buffer_size = 128);
-    std::unordered_map<int, std::coroutine_handle<>> clientCoroutines;
+    struct ClientState {
+        bool readPacketActive = false;
+        bool writePacketActive = false;
+        bool cleanupRequested = false;
+        std::unordered_set<std::string> ownedMsgIds; // 用于跟踪客户端拥有的消息ID
+    };
+    std::mutex msgIdMapMutex;
+
+    std::unordered_map<int, ClientState> clientStates;
     std::unordered_map<std::string, std::coroutine_handle<>> msgIdToCoroutineMap;
     std::unordered_map<std::string, std::string> msgIdToResponseMap;
 
